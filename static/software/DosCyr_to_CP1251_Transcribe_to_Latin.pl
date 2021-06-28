@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 # Convert DOS Cyrillic to CP1251 and transcribe to Latin characters
+# Year: 2001
 # License: WTFPL
 
 use strict;

@@ -1,0 +1,1103 @@
+/* ported to linux by Stanislav Lechev - AngelFire '2000   */
+/* ICQ UIN: 2924004            */
+
+/*
+ * (C) 19-Mar-1998y by Hard Wisdom "OSR/2 PWL Files Manager" for DOS/WINDOWS
+ */
+
+#include <stdio.h>		/* using standard libraries: file io */
+#include <string.h>		/* strings processing */
+#include <stdlib.h>		/* help routines */
+#include <time.h>		/* time accessing */
+/*** - AF - ********************************************* - AF - ***/
+//#include <dos.h>                         /* dos breaking control */
+#include <signal.h>		/* linux breaking control - SIGINT */
+/*** - AF - ********************************************* - AF - ***/
+
+typedef unsigned char byte;	/* primitive types, as in Pascal */
+typedef unsigned short word;
+typedef unsigned long dword;
+
+typedef dword hash_counters[0x04];	/* internal hashing counters */
+typedef byte hash_result[0x10];	/* end hashing result */
+typedef dword hash_key[0x10];	/* data buffer for hashing */
+
+typedef struct {		/* main hash container structure */
+    dword idx[0x02];		/* internal data position pointer */
+    hash_counters cnt;		/* internal hash counters */
+    byte buf[0x40];		/* buffer for hashing data */
+    hash_result res;
+    dword unknown;		/* purpose unknown, but present in code. I */
+    /* think this is some extension for future */
+    /* expanded cache handling, Ptr to Crypto? */
+    /* Not used now.                           */
+} hash_container;
+
+typedef struct {		/* main cryptotable, produced after hashing */
+    dword magic;		/* internal pointer to LastInit procedure. */
+    byte body[0x100];		/* data table itself */
+    byte c1, c2;		/* crypto pointers into data table */
+    hash_result key;		/* hash key for table building */
+} xor_table;
+
+typedef struct {		/* checking part into PWL header */
+    hash_result CryptoSign;	/* Crypting CryptoSign */
+    hash_result CheckSign;	/* Checking CryptoSign */
+} check_pack;
+
+typedef struct {		/* PWL file header itself */
+    dword Sign;			/* .PWL file signature */
+    dword UnknownC;		/* ?? Strange counter  */
+    byte ResLink[0x100];	/* Resource link index */
+    byte ResKey[0x100];		/* Resource key entry  */
+    dword HdrOfs;		/* Offset to CryptoHdr */
+    dword CryptoSeed[0x11];	/* Resource CryptoSeed */
+    word UnkAlign;		/* ?? Just alignment   */
+    check_pack Check;		/* Checking crypt-sign */
+    word ResOffsets[0xF];	/* Resources offsets.  */
+} pwl_hdr;
+
+/*=================================================================*/
+/*                     Security Partition                          */
+/*=================================================================*/
+
+int working = 0;
+
+void init_xor_table(xor_table * x)
+{				/* initializing cryptotable */
+    int i, p, t, tt;
+    x->c1 = 0, x->c2 = 0;
+    for (i = 0; i <= 255; x->body[i] = i, i++);
+    t = 0;
+    for (i = 0, p = 0; i <= 255; i++, p = i & 0x0F) {
+	t += x->key[p] + x->body[i];
+	t &= 0xFF;
+	tt = x->body[i];
+	x->body[i] = x->body[t];
+	x->body[t] = tt;
+    }
+}
+
+/*=================================================================*/
+
+void use_xor_table(xor_table * x, void *data, word datalen)
+{
+    byte p1, p2, t;		/* en/decrypting the data via cryptotable */
+    p1 = x->c1;
+    p2 = x->c2;
+    while (datalen--) {
+	p2 += x->body[++p1];
+	t = x->body[p1];
+	x->body[p1] = x->body[p2];
+	x->body[p2] = t;
+	t += x->body[p1];
+	*((byte *) data)++ ^= x->body[t];
+    };
+    x->c1 = p1;
+    x->c2 = p2;
+}
+
+/*=================================================================*/
+
+dword SwaBits(dword Parm, byte Where)
+{				/* Swap Bits into Dword */
+    return (Parm << Where) | (Parm >> 0x20 - Where);
+}
+
+/*=================================================================*/
+
+void init_hash(hash_container * h)
+{				/* hashing initialization */
+    h->idx[0] = 0;
+    h->idx[1] = 0;
+    h->cnt[0] = 0x67452301;
+    h->cnt[1] = 0xEFCDAB89;	/* Yeah. Num -> ~,Rev */
+    h->cnt[2] = 0x98BADCFE;
+    h->cnt[3] = 0x10325476;	/* *-> Rev -> ~,Rev   */
+}
+
+/*=================================================================*/
+
+void calc_hash(hash_counters c, hash_key k)
+{				/* main hashing proc. */
+    dword p1, p2, p3, p4;	/* What is this? MD5, MD4, MD2 ? or MD95 ;-) */
+
+    p1 = c[0];
+    p2 = c[1];
+    p3 = c[2];
+    p4 = c[3];
+
+/*-----------------------------------------------------------------*/
+
+    p1 += ((~p2 & p4) | (p2 & p3)) + k[0x0] - 0x28955b88;
+    p1 = SwaBits(p1, 0x07) + p2;
+    p4 += ((~p1 & p3) | (p1 & p2)) + k[0x1] - 0x173848AA;
+    p4 = SwaBits(p4, 0x0C) + p1;
+    p3 += ((~p4 & p2) | (p4 & p1)) + k[0x2] + 0x242070DB;
+    p3 = SwaBits(p3, 0x11) + p4;
+    p2 += ((~p3 & p1) | (p3 & p4)) + k[0x3] - 0x3E423112;
+    p2 = SwaBits(p2, 0x16) + p3;
+
+    p1 += ((~p2 & p4) | (p2 & p3)) + k[0x4] - 0x0A83F051;
+    p1 = SwaBits(p1, 0x07) + p2;
+    p4 += ((~p1 & p3) | (p1 & p2)) + k[0x5] + 0x4787C62A;
+    p4 = SwaBits(p4, 0x0C) + p1;
+    p3 += ((~p4 & p2) | (p4 & p1)) + k[0x6] - 0x57CFB9ED;
+    p3 = SwaBits(p3, 0x11) + p4;
+    p2 += ((~p3 & p1) | (p3 & p4)) + k[0x7] - 0x02B96AFF;
+    p2 = SwaBits(p2, 0x16) + p3;
+
+    p1 += ((~p2 & p4) | (p2 & p3)) + k[0x8] + 0x698098D8;
+    p1 = SwaBits(p1, 0x07) + p2;
+    p4 += ((~p1 & p3) | (p1 & p2)) + k[0x9] - 0x74BB0851;
+    p4 = SwaBits(p4, 0x0C) + p1;
+    p3 += ((~p4 & p2) | (p4 & p1)) + k[0xA] - 0x0000A44F;
+    p3 = SwaBits(p3, 0x11) + p4;
+    p2 += ((~p3 & p1) | (p3 & p4)) + k[0xB] - 0x76A32842;
+    p2 = SwaBits(p2, 0x16) + p3;
+
+    p1 += ((~p2 & p4) | (p2 & p3)) + k[0xC] + 0x6B901122;
+    p1 = SwaBits(p1, 0x07) + p2;
+    p4 += ((~p1 & p3) | (p1 & p2)) + k[0xD] - 0x02678E6D;
+    p4 = SwaBits(p4, 0x0C) + p1;
+    p3 += ((~p4 & p2) | (p4 & p1)) + k[0xE] - 0x5986BC72;
+    p3 = SwaBits(p3, 0x11) + p4;
+    p2 += ((~p3 & p1) | (p3 & p4)) + k[0xF] + 0x49B40821;
+    p2 = SwaBits(p2, 0x16) + p3;
+
+/*-----------------------------------------------------------------*/
+
+    p1 += ((~p4 & p3) | (p4 & p2)) + k[0x1] - 0x09E1DA9E;
+    p1 = SwaBits(p1, 0x05) + p2;
+    p4 += ((~p3 & p2) | (p3 & p1)) + k[0x6] - 0x3FBF4CC0;
+    p4 = SwaBits(p4, 0x09) + p1;
+    p3 += ((~p2 & p1) | (p2 & p4)) + k[0xB] + 0x265E5A51;
+    p3 = SwaBits(p3, 0x0E) + p4;
+    p2 += ((~p1 & p4) | (p1 & p3)) + k[0x0] - 0x16493856;
+    p2 = SwaBits(p2, 0x14) + p3;
+
+    p1 += ((~p4 & p3) | (p4 & p2)) + k[0x5] - 0x29D0EFA3;
+    p1 = SwaBits(p1, 0x05) + p2;
+    p4 += ((~p3 & p2) | (p3 & p1)) + k[0xA] + 0x02441453;
+    p4 = SwaBits(p4, 0x09) + p1;
+    p3 += ((~p2 & p1) | (p2 & p4)) + k[0xF] - 0x275E197F;
+    p3 = SwaBits(p3, 0x0E) + p4;
+    p2 += ((~p1 & p4) | (p1 & p3)) + k[0x4] - 0x182C0438;
+    p2 = SwaBits(p2, 0x14) + p3;
+
+    p1 += ((~p4 & p3) | (p4 & p2)) + k[0x9] + 0x21E1CDE6;
+    p1 = SwaBits(p1, 0x05) + p2;
+    p4 += ((~p3 & p2) | (p3 & p1)) + k[0xE] - 0x3CC8F82A;
+    p4 = SwaBits(p4, 0x09) + p1;
+    p3 += ((~p2 & p1) | (p2 & p4)) + k[0x3] - 0x0B2AF279;
+    p3 = SwaBits(p3, 0x0E) + p4;
+    p2 += ((~p1 & p4) | (p1 & p3)) + k[0x8] + 0x455A14ED;
+    p2 = SwaBits(p2, 0x14) + p3;
+
+    p1 += ((~p4 & p3) | (p4 & p2)) + k[0xD] - 0x561C16FB;
+    p1 = SwaBits(p1, 0x05) + p2;
+    p4 += ((~p3 & p2) | (p3 & p1)) + k[0x2] - 0x03105C08;
+    p4 = SwaBits(p4, 0x09) + p1;
+    p3 += ((~p2 & p1) | (p2 & p4)) + k[0x7] + 0x676F02D9;
+    p3 = SwaBits(p3, 0x0E) + p4;
+    p2 += ((~p1 & p4) | (p1 & p3)) + k[0xC] - 0x72D5B376;
+    p2 = SwaBits(p2, 0x14) + p3;
+
+/*-----------------------------------------------------------------*/
+
+    p1 += (p4 ^ p3 ^ p2) + k[0x5] - 0x0005C6BE;
+    p1 = SwaBits(p1, 0x04) + p2;
+    p4 += (p3 ^ p2 ^ p1) + k[0x8] - 0x788E097F;
+    p4 = SwaBits(p4, 0x0B) + p1;
+    p3 += (p4 ^ p2 ^ p1) + k[0xB] + 0x6D9D6122;
+    p3 = SwaBits(p3, 0x10) + p4;
+    p2 += (p4 ^ p3 ^ p1) + k[0xE] - 0x021AC7F4;
+    p2 = SwaBits(p2, 0x17) + p3;
+
+    p1 += (p4 ^ p3 ^ p2) + k[0x1] - 0x5B4115BC;
+    p1 = SwaBits(p1, 0x04) + p2;
+    p4 += (p3 ^ p2 ^ p1) + k[0x4] + 0x4BDECFA9;
+    p4 = SwaBits(p4, 0x0B) + p1;
+    p3 += (p4 ^ p2 ^ p1) + k[0x7] - 0x0944B4A0;
+    p3 = SwaBits(p3, 0x10) + p4;
+    p2 += (p4 ^ p3 ^ p1) + k[0xA] - 0x41404390;
+    p2 = SwaBits(p2, 0x17) + p3;
+
+    p1 += (p4 ^ p3 ^ p2) + k[0xD] + 0x289B7EC6;
+    p1 = SwaBits(p1, 0x04) + p2;
+    p4 += (p3 ^ p2 ^ p1) + k[0x0] - 0x155ED806;
+    p4 = SwaBits(p4, 0x0B) + p1;
+    p3 += (p4 ^ p2 ^ p1) + k[0x3] - 0x2B10CF7B;
+    p3 = SwaBits(p3, 0x10) + p4;
+    p2 += (p4 ^ p3 ^ p1) + k[0x6] + 0x04881D05;
+    p2 = SwaBits(p2, 0x17) + p3;
+
+    p1 += (p4 ^ p3 ^ p2) + k[0x9] - 0x262B2FC7;
+    p1 = SwaBits(p1, 0x04) + p2;
+    p4 += (p3 ^ p2 ^ p1) + k[0xC] - 0x1924661B;
+    p4 = SwaBits(p4, 0x0B) + p1;
+    p3 += (p4 ^ p2 ^ p1) + k[0xF] + 0x1FA27CF8;
+    p3 = SwaBits(p3, 0x10) + p4;
+    p2 += (p4 ^ p3 ^ p1) + k[0x2] - 0x3B53A99B;
+    p2 = SwaBits(p2, 0x17) + p3;
+
+/*-----------------------------------------------------------------*/
+
+    p1 += ((~p4 | p2) ^ p3) + k[0x0] - 0x0BD6DDBC;
+    p1 = SwaBits(p1, 0x06) + p2;
+    p4 += ((~p3 | p1) ^ p2) + k[0x7] + 0x432AFF97;
+    p4 = SwaBits(p4, 0x0A) + p1;
+    p3 += ((~p2 | p4) ^ p1) + k[0xE] - 0x546BDC59;
+    p3 = SwaBits(p3, 0x0F) + p4;
+    p2 += ((~p1 | p3) ^ p4) + k[0x5] - 0x036C5FC7;
+    p2 = SwaBits(p2, 0x15) + p3;
+
+    p1 += ((~p4 | p2) ^ p3) + k[0xC] + 0x655B59C3;
+    p1 = SwaBits(p1, 0x06) + p2;
+    p4 += ((~p3 | p1) ^ p2) + k[0x3] - 0x70F3336E;
+    p4 = SwaBits(p4, 0x0A) + p1;
+    p3 += ((~p2 | p4) ^ p1) + k[0xA] - 0x00100B83;
+    p3 = SwaBits(p3, 0x0F) + p4;
+    p2 += ((~p1 | p3) ^ p4) + k[0x1] - 0x7A7BA22F;
+    p2 = SwaBits(p2, 0x15) + p3;
+
+    p1 += ((~p4 | p2) ^ p3) + k[0x8] + 0x6FA87E4F;
+    p1 = SwaBits(p1, 0x06) + p2;
+    p4 += ((~p3 | p1) ^ p2) + k[0xF] - 0x01D31920;
+    p4 = SwaBits(p4, 0x0A) + p1;
+    p3 += ((~p2 | p4) ^ p1) + k[0x6] - 0x5CFEBCEC;
+    p3 = SwaBits(p3, 0x0F) + p4;
+    p2 += ((~p1 | p3) ^ p4) + k[0xD] + 0x4E0811A1;
+    p2 = SwaBits(p2, 0x15) + p3;
+
+    p1 += ((~p4 | p2) ^ p3) + k[0x4] - 0x08AC817E;
+    p1 = SwaBits(p1, 0x06) + p2;
+    p4 += ((~p3 | p1) ^ p2) + k[0xB] - 0x42C50DCB;
+    p4 = SwaBits(p4, 0x0A) + p1;
+    p3 += ((~p2 | p4) ^ p1) + k[0x2] + 0x2AD7D2BB;
+    p3 = SwaBits(p3, 0x0F) + p4;
+    p2 += ((~p1 | p3) ^ p4) + k[0x9] - 0x14792C6F;
+    p2 = SwaBits(p2, 0x15) + p3;
+
+/*-----------------------------------------------------------------*/
+
+    c[0] += p1;
+    c[1] += p2;
+    c[2] += p3;
+    c[3] += p4;
+}
+
+/*=================================================================*/
+
+void add_hash(hash_container * cont, void *data, word datalen)
+{
+    hash_key k;
+    dword p1, p2, p3, p4;	/* add some data to hash */
+
+    p1 = (cont->idx[0] >> 3) & 0x3F;	/* Just one large 2DWord Plus  */
+    if ((datalen << 3) + cont->idx[0] < cont->idx[0])
+	cont->idx[1]++;
+    cont->idx[0] += datalen << 3;
+    cont->idx[1] += datalen >> 0x1D;
+
+    for (; p2 = datalen--, p2 > 0;) {
+	cont->buf[p1] = *((byte *) data)++;
+	if (++p1 == 0x40) {
+	    for (p3 = 0, p4 = 0; p3 < 0x10; p3++, p4 += 4)
+		k[p3] = ((dword) cont->buf[p4 + 1] << 0x08) +	/* IMHO memcpy better */
+		    ((dword) cont->buf[p4 + 3] << 0x18) +
+		    ((dword) cont->buf[p4 + 2] << 0x10) +
+		    ((dword) cont->buf[p4 + 0] << 0x00);
+	    calc_hash(cont->cnt, k);
+	    p1 = 0;
+	}			/*if */
+    }				/*for */
+}
+
+/*=================================================================*/
+
+void flush_hash(hash_container * cont)
+{				/* drop buffer & make hash */
+    byte zero[0x40] = { 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    };
+    hash_key k;
+    dword p1, p2, p3, p4;
+
+    k[0x0E] = cont->idx[0];
+    k[0x0F] = cont->idx[1];	/* BUG, will be del.  */
+    p1 = (cont->idx[0] >> 3) & 0x3F;	/* after buf overflowed!!! */
+    if (p1 < 0x38)
+	p2 = 0x38 - p1;
+    else
+	p2 = 0x78 - p1;
+    add_hash(cont, zero, p2);	/* Must be at this point.  */
+
+    for (p3 = 0, p4 = 0; p3 < 0x0E; p3++, p4 += 4)
+	k[p3] = ((dword) cont->buf[p4 + 1] << 0x08) +	/* IMHO memcpy is better */
+	    ((dword) cont->buf[p4 + 3] << 0x18) +
+	    ((dword) cont->buf[p4 + 2] << 0x10) +
+	    ((dword) cont->buf[p4 + 0] << 0x00);
+    calc_hash(cont->cnt, k);
+
+    for (p3 = 0, p4 = 0; p3 < 0x04; p3++, p4 += 4) {
+	cont->res[p4 + 0] = cont->cnt[p3] >> 0x00;	/* IMHO memcpy is better */
+	cont->res[p4 + 1] = cont->cnt[p3] >> 0x08;
+	cont->res[p4 + 2] = cont->cnt[p3] >> 0x10;
+	cont->res[p4 + 3] = cont->cnt[p3] >> 0x18;
+    };
+}
+
+/*=================================================================*/
+
+void
+make_cryption_table(xor_table * t, char *name, char *pwd,
+		    dword Seed1, dword Seed2)
+{
+    hash_container h1, h2;
+    t->magic = 0x7FC64FD8;	/* Int. CryptoInit Ptr */
+
+    init_hash(&h1);		/* main crypto maker procedure */
+    add_hash(&h1, &Seed1, sizeof(Seed1));
+    add_hash(&h1, name, strlen(name) + 1);
+    add_hash(&h1, &Seed2, sizeof(Seed2));
+    flush_hash(&h1);
+    init_hash(&h2);
+    add_hash(&h2, pwd, strlen(pwd) + 1);
+    add_hash(&h2, &h1.res, sizeof(h1.res));
+    flush_hash(&h2);
+
+    memcpy(t->key, h2.res, sizeof(h2.res));	/* Lonely place where do it */
+    memchr(&h1, sizeof(h1), 0);
+    memchr(&h2, sizeof(h2), 0);	/* BUG Nafig? */
+    init_xor_table(t);
+}
+
+/*=================================================================*/
+
+int
+check_cryption_sign(char *name, hash_result CryptoSign,
+		    hash_result CheckSign)
+{
+    hash_container h;
+    int i;			/* checking decryption legacy */
+
+    init_hash(&h);
+    add_hash(&h, name, strlen(name) + 1);
+    add_hash(&h, CryptoSign, sizeof(hash_result));
+    flush_hash(&h);
+    return memcmp(h.res, CheckSign, sizeof(hash_result));
+}
+
+/*=================================================================*/
+/*                       Service Partition                         */
+/*=================================================================*/
+void error(int num, char *s)
+{				/* simple error handler */
+    printf("Error (\033[1;37m%d\033[0m): %s!\n", num, s);
+    exit(num);
+}
+
+/*=================================================================*/
+int LookUp(char *s, char c)
+{				/* returns char position in string */
+    int i = 0;
+    while (*s)
+	if (*s++ == c)
+	    return i;
+	else
+	    i++;
+    return -1;
+}
+
+/*=================================================================*/
+char *UpStr(char *s)
+{				/* cyr. 866 string upcase conversion */
+    char *r;
+    r = s;
+    while (*s)
+	*s++ = toupper(*s);
+//(*s>='à')&&(*s<='ï')?*s=*s-'ï'+'Y':
+//                 (*s>=' ')&&(*s<='¯')?*s=*s-'¯'+'&#143;':
+//                 (*s>='a')&&(*s<='z')?*s=*s-'z'+'Z':*s;
+    return r;
+}
+
+/*=================================================================*/
+char *LnTrim(char *s)
+{				/* cut string after \r\n */
+    char *r;
+    r = s;
+    do
+	*s = (*s == 0x0A) ? 0x00 : *s;
+    while (*s++);
+    s = r;
+    do
+	*r = (*r == 0x0D) ? 0x00 : *r;
+    while (*r++);
+    return s;
+}
+
+/*=================================================================*/
+/*                        Main Partition                           */
+/*=================================================================*/
+#define MaxPwlSize 0x1000	/* main restrictions */
+#define PwlSign 0x968582E3
+#define PwlHdr 0x252
+#define MaxEnumPwd 0x20
+/*** - AF - ********************************************* - AF - ***/
+#define SessionFile "pwldump.brk"
+#define InitializeFile "/tmp/pwldump"
+/*** - AF - ********************************************* - AF - ***/
+
+typedef struct {		/* internal PWL file representation */
+    union {			/* with supplementary fields */
+	pwl_hdr Hdr;
+	byte buf[MaxPwlSize];
+    } File;
+    word ResEntry[0x11];
+    word ResSz[0x10];
+} PwlFile;
+
+/*=================================================================*/
+
+dword read_pwl_file(char *pwd_file, PwlFile * b)
+{				/* PWL read/check */
+    FILE *f;
+    dword sz;
+    char s[256];
+
+    if ((f = fopen(pwd_file, "r")) == NULL)
+	error(2, "Can't open necessary PWL file");
+    fseek(f, 0, SEEK_END);
+    sz = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    fread(b, sizeof(PwlFile), 1, f);
+    fclose(f);
+    if (ferror(f))
+	error(2, "I/O failure during reading PWL file");
+
+    if (sz > MaxPwlSize)
+	error(2, "Desired PWL file too large for analysing");
+    sprintf(s, "%.8lX - %s",
+	    b->File.Hdr.Sign, "Oops, This Version is not supported");
+    if (b->File.Hdr.Sign != PwlSign)
+	error(1, s);
+    sprintf(s, "%.8lX - %s", b->File.Hdr.HdrOfs, "Invalid header offset");
+    if (b->File.Hdr.HdrOfs != PwlHdr)
+	error(1, s);
+
+    return sz;
+}
+
+/*=================================================================*/
+
+void dump_pwl_file(char *pwd_file, char *pwd_name, char *pwd_pass, int p)
+{
+    PwlFile b;
+    FILE *f;
+    dword sz;
+    char s[256];
+    xor_table x;
+    int r, i, j, jj, tr0, tr1, k, kk;
+
+    sz = read_pwl_file(pwd_file, &b);
+
+/*-----------------------------------------------------------------*/
+
+    printf("File: '\e[1;37m%s\e[0m' has size \e[1;37m%lXh\e[0m bytes\n",
+	   pwd_file, sz);
+    printf
+	("for user '\e[1;37m%s\e[0m' with password '\e[1;37m%s\e[0m' contains:\n\n",
+	 pwd_name, pwd_pass);
+
+/*-----------------------------------------------------------------*/
+
+    make_cryption_table(&x, pwd_name, pwd_pass, -1,
+			b.File.Hdr.CryptoSeed[0x10]);
+    use_xor_table(&x, &b.File.Hdr.Check, sizeof(b.File.Hdr.Check));
+    use_xor_table(&x, &b.File.Hdr.ResOffsets,
+		  sizeof(b.File.Hdr.ResOffsets));
+    r = check_cryption_sign(pwd_name, b.File.Hdr.Check.CryptoSign,
+			    b.File.Hdr.Check.CheckSign);
+
+    if (r)
+	error(1, "Sorry, invalid UserName or Password have been entered");
+
+    b.ResEntry[0] = 0x290;
+    b.ResEntry[0x10] = sz;
+    for (i = 0; i < 0x0F; i++)
+	b.ResEntry[i + 1] = b.File.Hdr.ResOffsets[i];
+    for (i = 0; i < 0x10; i++)
+	b.ResSz[i] = b.ResEntry[i + 1] - b.ResEntry[i];
+    for (i = 0; i < 0x10; i++) {
+	make_cryption_table(&x, pwd_name, pwd_pass, i,
+			    b.File.Hdr.CryptoSeed[i]);
+	use_xor_table(&x, &b.File.buf[b.ResEntry[i]], b.ResSz[i]);
+    }
+
+/*-----------------------------------------------------------------*/
+
+    if (p) {
+	printf
+	    ("-[\e[1;37mTechnical Information\e[0m]---------------------------------------\n");
+	printf
+	    (" Password file version: \e[1;37m%.8lX\e[0m;   Offset to Header: \e[1;37m%.8lX\e[0m\n",
+	     b.File.Hdr.Sign, b.File.Hdr.HdrOfs);
+	printf
+	    (" Unknown Align: \e[1;37m%.4X\e[0m; UnkCount: \e[1;37m%.8lX\e[0m;  CheckSeed: \e[1;37m%.8lX\e[0m\n",
+	     b.File.Hdr.UnkAlign, b.File.Hdr.UnknownC,
+	     b.File.Hdr.CryptoSeed[0x10]);
+	printf(" CryptoSeed Array = ( \e[1;37m%.8lX\e[0m",
+	       b.File.Hdr.CryptoSeed[0]);
+	for (i = 1; i < 0x10;
+	     printf("%s%.8lX",
+		    !(i & 0x3) ? "\n                      " : ", ",
+		    b.File.Hdr.CryptoSeed[i]), i++);
+	printf(" )\n");
+	printf
+	    ("-[\e[1;37mResources pointers\e0m]------------------------------------------");
+	for (i = 0; i < 0x100;
+	     printf("%s%.2hX",
+		    !(i & 0xF) ? "\n" : !(i & 0x7) ? " - " : "  ",
+		    b.File.Hdr.ResLink[i]), i++);
+	printf
+	    ("\n-[\e[1;37mResources key indexes\e[0m]---------------------------------------");
+	for (i = 0; i < 0x100;
+	     printf("%s%.2hX",
+		    !(i & 0xF) ? "\n" : !(i & 0x7) ? " - " : "  ",
+		    b.File.Hdr.ResKey[i]), i++);
+	printf("\n");
+	printf
+	    ("---------------------------------------------------------------\n");
+	printf(" CryptoSign = ");
+	for (i = 0; i < 0x10; printf(" \e[1;37m%.2hX\e[0m",
+				     b.File.Hdr.Check.CryptoSign[i++]));
+	printf("\n CheckoSign = ");
+	for (i = 0; i < 0x10; printf(" \e[1;37m%.2hX\e[0m",
+				     b.File.Hdr.Check.CheckSign[i++]));
+	printf("\n");
+	printf
+	    ("---------------------------------------------------------------\n");
+	printf(" Data = ( \e[1;37m%.4X\e[0m", b.ResEntry[0]);
+	for (i = 1; i < 0x11;
+	     printf("%s%.4X", i == 9 ? "\n          " : ", ",
+		    b.ResEntry[i]), i++);
+	printf(" )\n");
+	printf(" Len. = ( \e[1;37m%.4X\e[0m", b.ResSz[0] - 2);
+	for (i = 1; i < 0x10;
+	     printf("%s%.4X", i == 9 ? "\n          " : ", ",
+		    b.ResSz[i] - 2), i++);
+	printf(" )\n");
+	printf
+	    ("-[\e[1;37mDump\e[0m]--------------------------------------------------------");
+	for (j = 0, i = b.ResEntry[0x0]; i < b.ResEntry[0x10]; i++) {
+	    if (!j)
+		printf("\n  \e[1;37m%.4X\e[0m:", i);
+	    else if (!(j & 0x3))
+		printf(" -");
+	    printf(" \e[1;37m%.2hX\e[0m", b.File.buf[i]);
+	    j = (j == 15) ? 0 : j + 1;
+	};
+	printf("\n");
+	printf
+	    ("-[\e[1;37mCharacter\e[0m]---------------------------------------------------");
+	for (j = 0, i = b.ResEntry[0x0]; i < b.ResEntry[0x10]; i++) {
+	    if (!j)
+		printf("\n  \e[1;37m%.4X\e[0m:", i);
+	    else if (!(j & 0x3))
+		printf("  ");
+	    printf("  \e[1;37m%c\e[0m",
+		   b.File.buf[i] > 32 ? b.File.buf[i] : '.');
+	    j = (j == 15) ? 0 : j + 1;
+	};
+	printf("\n");
+	printf
+	    ("---------------------------------------------------------------\n");
+	printf("\n");
+    }
+
+/*-----------------------------------------------------------------*/
+
+    printf
+	("-[\e[1;37mType\e[0m]-[\e[1;37mThe resource location string\e[0m]--------------[\e[1;37mPassword\e[0m]-\n");
+    tr0 = 0, tr1 = 0;
+    for (i = 0; i < 0x10; i++)
+	if (b.ResSz[i] > 8) {
+	    j = b.ResEntry[i];
+	    jj = b.ResEntry[i + 1] - 2;
+	    tr0++;
+	    while (j < jj) {
+		k = b.File.buf[j + 7];
+		printf("  %s  ", k == 3 ? "\e[1;37mLink\e[0m" :
+		       k ==
+		       6 ? "\e[1;37mDial\e[0m" : "\e[1;37m-\?\?-\e[0m");
+		k = (((word) b.File.buf[j + 3]) << 8) + b.File.buf[j + 2];
+		memcpy(s, &b.File.buf[j + 8], k);
+		s[k] = 0;
+		printf(" %-38s", s);
+		kk = (((word) b.File.buf[j + 5]) << 8) + b.File.buf[j + 4];
+		memcpy(s, &b.File.buf[j + 8 + k], kk);
+		s[kk] = 0;
+		printf("%14s", s);
+		j = j + ((word) b.File.buf[j + 1] << 8) + b.File.buf[j +
+								     0];
+		tr1++;
+		printf("\n");
+	    }			/*while */
+	}			/*for */
+    printf
+	("---------------------------------------------------------------\n");
+    printf
+	("  Key Entrys: \e[1;37m%d\e[0m;   Number of resources: \e[1;37m%d\e[0m.\n",
+	 tr0, tr1);
+}				/*func */
+
+/*=================================================================*/
+
+dword start_time, stop_time, last_raise, pwd_cnt;
+int pwd_fault, pwd_ok, hdl_type;
+
+int breakit = 0;
+char *rip_name, *rip_user, *rip_voc, *rip_password;
+dword rip_pos;
+
+/*-----------------------------------------------------------------*/
+
+/* break handling routines */
+int sighandler(int signum)
+{
+    dword t;
+    FILE *f;
+    if (breakit == 0 && working == 1) {
+	if (!(signum == 1000)) {
+	    printf("\n\nReceived (\033[1;37m%d\033[0m) signal.\n", signum);
+	    fflush(stdout);
+	}
+
+	if ((clock() - last_raise < 9) || !pwd_fault) {
+	    stop_time = clock();
+	    if (hdl_type)
+		printf
+		    ("\nTotally trained \e[1;37m%lu\e[0m passwords, Vocabulary position \e[1;37m%lu\e[0m.\n",
+		     pwd_cnt, rip_pos);
+	    else
+		printf
+		    ("\nTotally tained \e[1;37m%lu\e[0m passwords, Last trained password is '\e[1;37m%s\e[0m'.\n",
+		     pwd_cnt, rip_password);
+	    t = (stop_time - start_time);
+	    t = t > 1000 ? t / 1000 * 55 : t * 55 / 1000;
+	    printf
+		("Elapsed time \e[1;37m%lu\e[0m seconds; Average speed \e[1;37m%lu\e[0m passwords per second.\n",
+		 t, t > 0 ? pwd_cnt / t : pwd_cnt);
+	    printf("Cracked passwords \e[1;37m%u\e[0m. \e[1;37m%s\e[0m.\n",
+		   pwd_ok,
+		   pwd_ok !=
+		   0 ? "Check them under MD95 Logon" :
+		   "Sorry, Today is not Your day");
+
+	    if (pwd_fault) {
+		if ((f = fopen(SessionFile, "wb")) == NULL)
+		    error(2, "Can't create session RIP file");
+		if (hdl_type)
+		    fprintf(f, "$%s\r\n%s\r\n%s\r\n%lu\r\n", rip_name,
+			    rip_user, rip_voc, rip_pos);
+		else
+		    fprintf(f, "!%s\r\n%s\r\n%s\r\n", rip_name, rip_user,
+			    rip_password);
+		fclose(f);
+		if (ferror(f))
+		    error(2, "Session RIP creation failure");
+		else
+		    fprintf(stderr,
+			    "Session RIP file created successfully!\n");
+		printf("\nbye.\n");
+		exit(0);
+	    };
+	    return 0;
+
+	};
+	last_raise = clock();
+
+	fprintf(stderr,
+		"\nCurrently interested moments \e[1;37m%u\e[0m, \e[1;37m%s\e[0m.\n",
+		pwd_ok,
+		(pwd_ok ==
+		 0) ? "nothing to see" : "look at them after all");
+	if (hdl_type)
+	    fprintf(stderr,
+		    "Currently trained \e[1;37m%lu\e[0m passwords, Vocabulary position \e[1;37m%lu\e[0m,\n",
+		    pwd_cnt, rip_pos);
+	else
+	    fprintf(stderr,
+		    "Currently trained \e[1;37m%lu\e[0m passwords, Last trained password is '\e[1;37m%s\e[0m',\n",
+		    pwd_cnt, rip_password);
+
+	if (signum == 2) {
+	    fprintf(stderr,
+		    "Hit the \e[1;37mCtrl\e[0m+\e[1;37mC\e[0m again within \e[1;37m1\e[0m second to exit!!!\n");
+	    breakit = 1;
+	    sleep(1);
+	    breakit = 0;
+	} else {
+//if (signum != 1000) exit(0);
+
+
+//if ((!(signum == 2)) || (!(signum == 1000))) {
+	    printf("\e[1;37mTerminating...\e[0m\n");
+	    if ((f = fopen(SessionFile, "wb")) == NULL)
+		error(2, "Can't create session RIP file");
+	    if (hdl_type)
+		fprintf(f, "$%s\r\n%s\r\n%s\r\n%lu\r\n", rip_name,
+			rip_user, rip_voc, rip_pos);
+	    else
+		fprintf(f, "!%s\r\n%s\r\n%s\r\n", rip_name, rip_user,
+			rip_password);
+	    fclose(f);
+	    if (ferror(f))
+		error(2, "Session RIP creation failure");
+	    else
+		fprintf(stderr,
+			"Session RIP file created successfully!\n");
+	    printf("\nbye.\n");
+	    exit(0);
+	};
+
+	return 1;
+    }
+    printf("\nbye.\n");
+    exit(0);
+}
+
+/*=================================================================*/
+
+void
+voc_pwl_file(char *pwd_file, char *pwd_name,
+	     char *voc_file, dword start_voc_pos)
+{
+    FILE *v, *f;
+    PwlFile b;
+    xor_table x;
+    check_pack c;
+    char s[256];
+    int r;
+
+    if ((v = fopen(voc_file, "r")) == NULL)
+	error(2, "Can't open vocabulary file");
+    fseek(v, start_voc_pos, SEEK_SET);
+    read_pwl_file(pwd_file, &b);
+
+    memcpy(&c, &b.File.Hdr.Check, sizeof(c));
+    rip_name = pwd_file;
+    rip_user = pwd_name;
+    rip_voc = voc_file;
+    start_time = clock();
+    last_raise = 0;
+    pwd_cnt = 0;
+    rip_pos = start_voc_pos;
+    pwd_fault = 1;
+    pwd_ok = 0;
+    hdl_type = 1;		//ctrlbrk(&enum_hdl);
+
+/*-----------------------------------------------------------------*/
+
+    make_cryption_table(&x, pwd_name, "", -1, b.File.Hdr.CryptoSeed[0x10]);
+    use_xor_table(&x, &b.File.Hdr.Check, sizeof(b.File.Hdr.Check));
+    r = check_cryption_sign(pwd_name, b.File.Hdr.Check.CryptoSign,
+			    b.File.Hdr.Check.CheckSign);
+    if (!r) {
+	printf("Maybe \e[1;37m<No Password>\e[0m - think about this.\n\n");
+	pwd_ok++;
+    };
+
+    printf("Beginning vocabulary session for file '\e[1;37m%s\e[0m',\n",
+	   pwd_file);
+    printf("of user '\e[1;37m%s\e[0m' via vocabulary '\e[1;37m%s\e[0m'.\n",
+	   pwd_name, voc_file);
+
+/*-----------------------------------------------------------------*/
+
+    while (!feof(v)) {
+	fgets(s, sizeof(s), v);
+	if (ferror(v))
+	    error(2, "I/O failure during vocabulary enumerating");
+	LnTrim(UpStr(s));
+	rip_pos = ftell(v);
+	pwd_cnt++;
+	memcpy(&b.File.Hdr.Check, &c, sizeof(c));
+	make_cryption_table(&x, pwd_name, s, -1,
+			    b.File.Hdr.CryptoSeed[0x10]);
+	use_xor_table(&x, &b.File.Hdr.Check, sizeof(b.File.Hdr.Check));
+	r = check_cryption_sign(pwd_name, b.File.Hdr.Check.CryptoSign,
+				b.File.Hdr.Check.CheckSign);
+	if (!r) {
+	    printf("Password '\e[1;37m%s\e[0m' - maybe correct!\n", s);
+	    pwd_ok++;
+	};
+    };
+    fclose(v);
+    pwd_fault = 0;
+    sighandler(1000);
+}
+
+/*=================================================================*/
+
+void try_pwl_file(char *pwd_file, char *pwd_name, char *pwd_seed)
+{
+    char pwd[256], enum_str[256];
+    byte mask[256];
+    check_pack c;
+    FILE *f;
+    PwlFile b;
+    xor_table x;
+    int r, upper, i, l;
+
+    if ((f = fopen(InitializeFile, "r")) == NULL) {
+	if ((f = fopen(InitializeFile, "w")) == NULL)
+	    error(2, "Unable to create initialization file");
+	fprintf(f, "%s\n", "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+	fclose(f);
+	error(0,
+	      "Created default initialization file (\e[1;37m/tmp/pwldump\e[0m).\nInspect and run again");
+    } else {
+	fgets(enum_str, sizeof(enum_str), f);	/* read the initialization file */
+	LnTrim(UpStr(enum_str));
+	upper = strlen(enum_str) - 1;
+	fclose(f);
+	if (upper <= 0)
+	    error(1, "No enumeration string, nothing to do");
+    };
+    strcpy(pwd, pwd_seed);
+    for (i = 0; i < strlen(pwd); mask[i] = LookUp(enum_str, pwd[i]), i++);
+    read_pwl_file(pwd_file, &b);
+
+    memcpy(&c, &b.File.Hdr.Check, sizeof(c));
+    rip_name = pwd_file;
+    rip_user = pwd_name;
+    rip_password = pwd;
+    start_time = clock();
+    last_raise = 0;
+    pwd_cnt = 0;
+    pwd_fault = 1;
+    pwd_ok = 0;
+    hdl_type = 0;		//ctrlbrk(&enum_hdl);
+
+/*-----------------------------------------------------------------*/
+
+    printf("Beginning brute session for file '\e[1;37m%s\e[0m',\n",
+	   pwd_file);
+    printf
+	("of user '\e[1;37m%s\e[0m' with EnumStr:\n<<\e[1;37m%s\e[0m>>.\n",
+	 pwd_name, enum_str);
+
+    l = strlen(pwd);
+    do {
+	printf("Using password length \e[1;37m%d\e[0m characters.\n", l);
+	do {			//asm mov ah,30h; asm int 21h; /* Yield. For break detection. */
+	    memcpy(&b.File.Hdr.Check, &c, sizeof(c));
+	    pwd_cnt++;
+	    make_cryption_table(&x, pwd_name, pwd, -1,
+				b.File.Hdr.CryptoSeed[0x10]);
+	    use_xor_table(&x, &b.File.Hdr.Check, sizeof(b.File.Hdr.Check));
+	    r = check_cryption_sign(pwd_name, b.File.Hdr.Check.CryptoSign,
+				    b.File.Hdr.Check.CheckSign);
+	    if (!r) {
+		printf("Password '\e[1;37m%s\e[0m' - maybe correct!\n",
+		       pwd);
+		pwd_ok++;
+	    };
+	    i = 0;
+	    while (mask[i] == upper && i < l) {
+		pwd[i] = enum_str[0];
+		mask[i] = 0;
+		i++;
+	    };
+	    if (i < l)
+		pwd[i] = enum_str[++mask[i]];
+	}
+	while (i < l);
+	if (l <= MaxEnumPwd) {
+	    pwd[l] = enum_str[0];
+	    pwd[l + 1] = 0;
+	    mask[l] = 0;
+	    l++;
+	}
+    }
+    while (l <= MaxEnumPwd);
+    strcat(pwd, "+ more disabled");
+    pwd_fault = 0;
+    sighandler(1000);
+}
+
+/*=================================================================*/
+/*                           Entry Point                           */
+/*=================================================================*/
+/*char* gett(char* qqq) {
+scanf("%s%*[^\n]", &qqq);
+getchar();
+if (qqq == "\n")
+qqq = "";
+return qqq;
+}
+*/
+
+int main(int argc, char *argv[])
+{
+    char pwd_file[256], pwd_name[256], pwd_pass[256], voc_file[256],
+	s[256];
+    dword voc_pos;
+    enum { list, liste, nopass, voc, brute, cont, bad } parm;
+    FILE *f;
+    char c;
+    printf("\033[2J");
+    printf
+	("(C) 19-Mar-1998y by Hard Wisdom \"OSR/2 PWL Files Manager\" v2.0\n");
+    printf
+	("[PWLHACK Bonus Release]         ~~~~~~~~~~~~~~~~~~~~~~~~~       \n");
+    printf
+	("\033[1;34mPorted for Linux by \033[1;36m Stanislav Lechev - AngelFire\033[1;31m[HLT]\033[0m. af@0xAF.org\n");
+    printf("\033[1;37m\tGreets :\033[0m\n");
+    printf("\t\t me, me and me again.\n");
+    printf("\033[1;37m\tSpecial Greets :\033[0m\n");
+    printf("\t\tto me of course:) [\033[1;37mc0d3z3r0\033[0m].\n");
+    printf("\033[1;37m\tSpecial Thanks :\033[0m\n");
+    printf("\t\tto my girlfriend \033[1;37miCeBaBy\033[0m.\n");
+    printf("\033[1;37m\tae stiga tolkowa che se prestarah :)\033[0m\n");
+    printf("\033[0m\n");
+
+/*-----------------------------------------------------------------*/
+
+    if (argc <= 1) {
+	printf
+	    ("USAGE: \033[1;37m%s\033[0m \e[1;37m/L\e[0m[\e[1;37m:E\e[0m][\e[1;37m:N\e[0m] [\e[1;37mPwlFileName\e[0m] [\e[1;37mUserName\e[0m] [\e[1;37mUserPwd\e[0m]\n",
+	     argv[0]);
+	printf
+	    ("       - to dump specified PWL file via necessary parameters\n");
+	printf
+	    ("         use attribute '\e[1;37mE\e[0m' for display technical information\n");
+	printf
+	    ("         use attribute '\e[1;37mN\e[0m' for no password\n");
+	printf
+	    ("       \033[1;37m%s\033[0m \e[1;37m/V\e[0m [\e[1;37mPwlFileName\e[0m] [\e[1;37mUserName\e[0m] [\e[1;37mVocFile\e[0m]\n",
+	     argv[0]);
+	printf
+	    ("       - to detect password for PWL file by some WordList\n");
+	printf
+	    ("       \033[1;37m%s\033[0m \e[1;37m/B\e[0m [\e[1;37mPwlFileName\e[0m] [\e[1;37mUserName\e[0m]\n",
+	     argv[0]);
+	printf("       - to perform brute force password detection\n");
+	printf("       \033[1;37m%s\033[0m \e[1;37m/C\e[0m\n", argv[0]);
+	printf("       - to resume aborted session\n");
+	printf
+	    ("You must use the Full_User_Name !!!  It is strongly necessary.\n");
+	return;
+    }
+
+/*-----------------------------------------------------------------*/
+    signal(SIGINT, (void (*)(int))sighandler);
+    signal(SIGTERM, (void (*)(int))sighandler);
+    signal(SIGQUIT, (void (*)(int))sighandler);
+    signal(SIGTSTP, (void (*)(int))sighandler);
+/*-----------------------------------------------------------------*/
+    strcpy(s, argv[1]);
+    UpStr(s);
+    parm = !strcmp(s, "/L") ? list :
+	!strcmp(s, "/L:E") ? liste :
+	!strcmp(s, "/L:N") ? nopass :
+	!strcmp(s, "/V") ? voc :
+	!strcmp(s, "/B") ? brute : !strcmp(s, "/C") ? cont : bad;
+
+    if (parm == bad) {
+	strcat(s, " - Invalid key specified in command line");
+	error(1, s);
+    }
+
+/*-----------------------------------------------------------------*/
+    if (parm == cont) {
+	if ((f = fopen(SessionFile, "r")) == NULL)
+	    error(2, "No session storage file");
+	c = fgetc(f);
+	if (ferror(f))
+	    error(2, "Can't read session storage file");
+	if (c == '!') {
+	    if (!(fgets(pwd_file, sizeof(pwd_file), f) &&
+		  fgets(pwd_name, sizeof(pwd_name), f) &&
+		  fgets(pwd_pass, sizeof(pwd_pass), f)))
+		error(2, "Damaged brute session file");
+	    fclose(f);
+	    LnTrim(pwd_file);
+	    LnTrim(UpStr(pwd_name));
+	    LnTrim(UpStr(pwd_pass));
+	    printf
+		("Ok, Raise Brute session from password '\e[1;37m%s\e[0m'.\n\n",
+		 pwd_pass);
+	    working = 1;
+	    try_pwl_file(pwd_file, pwd_name, pwd_pass);
+	} else if (c == '$') {
+	    if (!(fgets(pwd_file, sizeof(pwd_file), f) &&
+		  fgets(pwd_name, sizeof(pwd_name), f) &&
+		  fgets(voc_file, sizeof(voc_file), f) &&
+		  fscanf(f, "%lu", &voc_pos)))
+		error(2, "Damaged vocabulary session file");
+	    fclose(f);
+	    LnTrim(pwd_file);
+	    LnTrim(UpStr(pwd_name));
+	    LnTrim(voc_file);
+	    printf
+		("Ok, Raise Vocabulary session from position (\e[1;37m%lu\e[0m).\n\n",
+		 voc_pos);
+	    working = 1;
+	    voc_pwl_file(pwd_file, pwd_name, voc_file, voc_pos);
+	} else
+	    error(1, "Invalid session storage file");
+    } else {
+	if (argc < 3) {
+	    printf("Enter the file name: ");
+	    gets(pwd_file);
+	} else {
+	    strcpy(pwd_file, argv[2]);
+	    printf("File : \e[1;37m%s\e[0m\n", pwd_file);
+	}
+//  UpStr(pwd_file);
+	if (argc < 4) {
+	    printf("Enter the Full User Name: ");
+	    gets(pwd_name);
+	} else
+	    strcpy(pwd_name, argv[3]);
+	UpStr(pwd_name);
+
+	if (parm == list || parm == liste || parm == nopass) {
+	    if (argc < 5) {
+		if (parm != nopass) {
+		    printf("Enter the password: ");
+		    gets(pwd_pass);
+		} else {
+		    parm = list;
+		}
+	    } else
+		strcpy(pwd_pass, argv[4]);
+	    UpStr(pwd_pass);
+	    working = 1;
+	    dump_pwl_file(pwd_file, pwd_name, pwd_pass,
+			  parm == list ? 0 : 1);
+	} else if (parm == voc) {
+	    if (argc < 5) {
+		printf("Enter the Vocabulary file name: ");
+		gets(voc_file);
+	    } else
+		strcpy(voc_file, argv[4]);
+	    working = 1;
+	    voc_pwl_file(pwd_file, pwd_name, voc_file, 0);
+	} else {
+	    working = 1;
+	    try_pwl_file(pwd_file, pwd_name, "");
+	}
+    }				/*if cont */
+    return 0;
+}
+
+/*******************************************************************/
+/*   Nice work, Isn't it? It is my second program written on "C".  */
+/*******************************************************************/
