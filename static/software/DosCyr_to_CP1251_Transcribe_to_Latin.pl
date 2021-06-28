@@ -1,0 +1,93 @@
+#!/usr/bin/perl
+# Convert DOS Cyrillic to CP1251 and transcribe to Latin characters
+# License: WTFPL
+
+use strict;
+
+print &cyr2latin(&dos2win($_)) while (<STDIN>);
+
+
+# convert dos cyr to win cyr (cp1251)
+sub dos2win($) {
+	my @str = split (/(.)/, shift);
+	my $ret;
+	foreach (@str) {
+		$_ = chr(ord($_) + 64) if ((ord($_) >= 128) and (ord($_) <= 192));
+		$ret.=$_;
+	}
+	return ($ret);
+}
+
+# convert win cyr (cp1251) to latin letters
+sub cyr2latin($) {
+	my $what = shift;
+	my %matrix;
+	$matrix{'à'} = "a";
+	$matrix{'á'} = "b";
+	$matrix{'â'} = "v";
+	$matrix{'ã'} = "g";
+	$matrix{'ä'} = "d";
+	$matrix{'å'} = "e";
+	$matrix{'æ'} = "zh";
+	$matrix{'ç'} = "z";
+	$matrix{'è'} = "i";
+	$matrix{'é'} = "j";
+	$matrix{'ê'} = "k";
+	$matrix{'ë'} = "l";
+	$matrix{'ì'} = "m";
+	$matrix{'í'} = "n";
+	$matrix{'î'} = "o";
+	$matrix{'ï'} = "p";
+	$matrix{'ð'} = "r";
+	$matrix{'ñ'} = "s";
+	$matrix{'ò'} = "t";
+	$matrix{'ó'} = "u";
+	$matrix{'ô'} = "f";
+	$matrix{'õ'} = "h";
+	$matrix{'ö'} = "c";
+	$matrix{'÷'} = "ch";
+	$matrix{'ø'} = "sh";
+	$matrix{'ù'} = "sht";
+	$matrix{'ú'} = "y";
+	$matrix{'ü'} = "y";
+	$matrix{'þ'} = "yu";
+	$matrix{'ÿ'} = "ya";
+
+
+	$matrix{'À'} = "A";
+	$matrix{'Á'} = "B";
+	$matrix{'Â'} = "V";
+	$matrix{'Ã'} = "G";
+	$matrix{'Ä'} = "D";
+	$matrix{'Å'} = "E";
+	$matrix{'Æ'} = "ZH";
+	$matrix{'Ç'} = "Z";
+	$matrix{'È'} = "I";
+	$matrix{'É'} = "J";
+	$matrix{'Ê'} = "K";
+	$matrix{'Ë'} = "L";
+	$matrix{'Ì'} = "M";
+	$matrix{'Í'} = "N";
+	$matrix{'Î'} = "O";
+	$matrix{'Ï'} = "P";
+	$matrix{'Ð'} = "R";
+	$matrix{'Ñ'} = "S";
+	$matrix{'Ò'} = "T";
+	$matrix{'Ó'} = "U";
+	$matrix{'Ô'} = "F";
+	$matrix{'Õ'} = "H";
+	$matrix{'Ö'} = "C";
+	$matrix{'×'} = "CH";
+	$matrix{'Ø'} = "SH";
+	$matrix{'Ù'} = "SHT";
+	$matrix{'Ú'} = "Y";
+	$matrix{'Ü'} = "Y";
+	$matrix{'Þ'} = "YU";
+	$matrix{'ß'} = "YA";
+
+	$matrix{chr()} = $matrix{chr()} ? $matrix{chr()} : chr() for(0..255);
+
+	$what =~ s/(.)/$matrix{$1}/g;
+	return ($what);
+}
+
