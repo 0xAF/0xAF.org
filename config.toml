@@ -63,7 +63,7 @@ taxonomies = [
 #       {code = "it"}, # there won't be a feed for Italian content
 #     ]
 #
-languages = []
+# languages = []
 
 # A list of directories to search for additional `.sublime-syntax` files in.
 extra_syntaxes = []
@@ -157,6 +157,10 @@ post_view_navigation_prompt = "Read more"
 # Switch this to true if you need full unicode support.
 # Defaults to false.
 use_full_hack_font = true
+
+# use Play font instead of Hack
+use_play_font = true
+
 
 # Optional: Global favicon URL and mimetype.
 #           Mimetype defaults to "image/x-icon".
