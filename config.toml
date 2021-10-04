@@ -142,6 +142,8 @@ menu_items = [
 
 	# set newtab to true to make the link open in new tab
 	{name = "github", url = "https://github.com/0xAF", newtab = true},
+
+	{name = "amateur radio", url = "https://ham.0xaf.org", newtab = true},
 ]
 
 # Whether to show links to earlier and later posts
