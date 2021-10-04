@@ -24,6 +24,7 @@ figure {
 | Facebook  | [slechev](https://facebook.com/slechev) |
 | Instagram  | [0xaf](https://www.instagram.com/0xaf/) |
 | LinkedIn  | [stanislavlechev](https://www.linkedin.com/in/stanislavlechev/) |
+| Amateur Radio Call Sign  | LZ2SLL |
 
 <script>
 var x = document.body.querySelector('a[href^="mailto:"');
