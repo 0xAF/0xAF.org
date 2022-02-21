@@ -84,7 +84,7 @@ document.addEventListener("DOMContentLoaded", function () {
     "If you want to change the logo url and title (upper left 'OpenWebRX' logo), add this script to the 'Photo description'.<br>" +
     "<code> &lt;script&gt; window.sdr_url = '//sdr.0xaf.org/';<br>window.sdr_title = 'SDR in Varna, Bulgaria'; &lt;/script&gt;</code><hr>" +
     "If you want to <b>IMPORT MY BOOKMARKS</b>, then add this script to 'Photo description':<br> " +
-    "They will not replace your bookmarks if you already have the same frequency, and will be shown in Purple color.<br>" +
+    "They will not replace your bookmarks if you already have the same frequency, and will be shown in <b>Purple</b> color.<br>" +
     "<code> &lt;script&gt; window.import_bookmarks_from_af = 1; &lt;/script&gt; </code><hr>" +
     "</small>");
 
