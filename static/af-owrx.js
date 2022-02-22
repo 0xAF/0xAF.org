@@ -227,8 +227,8 @@ function rework_bookmarks() {
     });
 
     if (window.import_bookmarks_from_af) {
-      // fetch("https://0xaf.org/af-owrx-bookmarks.json")
-      fetch("http://127.0.0.1:3000/bookmarks.json")
+      fetch("https://0xaf.org/af-owrx-bookmarks.json")
+      // fetch("http://127.0.0.1:3000/bookmarks.json")
         .then(res => res.json())
         .then((out) => {
         // var out = af_imported_bookmarks;
