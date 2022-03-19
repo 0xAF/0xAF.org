@@ -7,7 +7,7 @@
 // Copyright (C) 2022, Stanislav Lechev.
 // License: WTFPL
 
-var af_owrx_version = '2022-02-21';
+var af_owrx_version = '2022-03-18';
 
 var bookmark_add_on_click;
 window.idle_client_timeout_in_minutes = window.idle_client_timeout_in_minutes || 30;
@@ -16,8 +16,14 @@ window.import_bookmarks_from_af = window.import_bookmarks_from_af || 0;
 //window.sdr_title
 //window.clustrmaps_id
 
-// add basic client tracking (Firefox will block it by default I think)
 document.addEventListener("DOMContentLoaded", function () {
+  // send messages to parent page if this sdr is loaded as iframe
+  function locationHashChanged(e) {
+    window.parent.postMessage(location.hash, '*');
+  }
+  window.onhashchange = locationHashChanged;
+
+  // add basic client tracking (Firefox will block it by default I think)
   // add cluster maps tracking
   if (typeof window.clustrmaps_id !== 'undefined' && window.clustrmaps_id.length) {
     var cmscr = document.createElement('script');
@@ -29,37 +35,55 @@ document.addEventListener("DOMContentLoaded", function () {
     if (a) a.appendChild(cmscr);
   }
 
+
+  var a = document.querySelector('.webrx-rx-photo-title');
+  if (a) a.insertAdjacentHTML("afterend", `<div class="title-info-added-features">With extra features provided by <a href="https://0xaf.org">LZ2SLL</a> [0xAF].</div>`);
+
+  var a = document.querySelector('.webrx-rx-title');
+  if (a) a.setAttribute("title", `With extra features provided by LZ2SLL [0xAF].`);
+
   var a = document.querySelector('.settings-grid');
   if (a) a.insertAdjacentHTML("afterend",
-    "<div class='af-help'><b>AF:</b> Features added as of <b>"+af_owrx_version+"</b>.<br><br>" +
-    "<b>-</b> Logo link and title can be changed from <b>General settings</b>-><b>Photo Description</b>.<br>" +
-    "<b>-</b> '<b>Under development</b>' notification is removed (if you're using a dev version of OWR).<br>" +
-    "<b>-</b> Bookmarks can be split into 2 lines by adding '<b>:</b>' character in the name.<br>" +
-    "<b>-</b> Guest users (not logged in) are automatiocally disconnected from the slot if idle for more than 30 minutes (no mouse/keyboard event).<br>" +
-    "<b>-</b> You can hide device name from profiles by adding '<b>[-]</b>' in front of the name.<br>" +
-    "<b>-</b> You can hide some profiles from guests (not logged in), by adding '<b>[-]</b>' somewhere in the profile name.<br>" +
-    "<b>-</b> You can disable profile change for guests (not logged in) by adding '<b>[-]</b>' in <b>General settings</b>-><b>Receiver name</b>.<br>" +
-    "<b>-</b> You can add user tracking (site visitors) with ClustrMaps. See the help in <b>General settings</b>-><b>Photo Description</b>.<br>" +
-    "<b>-</b> You can use '<b>receiver-info-in-title</b>' class for nice semi-dark transparent background in the expanded title.<br>" +
-    "<b>-</b> You can <b>IMPORT MY BOOKMARKS</b> if you want. See the help in <b>General settings</b>-><b>Photo Description</b>.<br>" +
-    "<hr>Example configuration to put in <b>General settings</b>-><b>Photo Description</b> (change the underlined texts):<br>" +
-    "<code>" +
-    "&lt;div class='receiver-info-in-title'&gt;<br>" +
-    "Receiver is operated by: &lt;a href='mailto:<u>YOUR@EMAIL.COM</u>' target='_blank'&gt;<u>YOUR_CALL_SIGN</u>&lt;/a&gt;&lt;br&gt;<br>" +
-    "This SDR has added&lt;br&gt;features by LZ2SLL.&lt;br&gt;&lt;br&gt;<br>" +
-    "Device: <u>RTL-SDR</u>&lt;br&gt;<br>" +
-    "Antenna: <u>Diamond X-300</u>&lt;br&gt;<br>" +
-    "&lt;/div&gt;<br>" +
-    "&ltscript src='https://0xaf.org/af-owrx.js'&gt;&lt;/script&gt;<br>" +
-    "&lt;script&gt;<br>" +
-    "&nbsp;&nbsp;window.idle_client_timeout_in_minutes = <u>30</u>; <br>" +
-    "&nbsp;&nbsp;// window.clustrmaps_id = '<u>clustrmaps_id</u>';<br>" +
-    "&nbsp;&nbsp;window.sdr_url = '//<u>sdr.0xaf.org</u>/';<br>" +
-    "&nbsp;&nbsp;window.sdr_title = '<u>SDR in Varna, Bulgaria</u>';<br>" +
-    "&nbsp;&nbsp;window.import_bookmarks_from_af = <u>1</u>;<br>" +
-    "&lt;/script&gt;<br>" +
-    "</code>" +
-    "</div>"
+    `
+    <div class='af-help'><b>AF:</b> Features added as of <b>${af_owrx_version}</b>.<br>
+    <br>
+    <b>-</b> Logo link and title can be changed from <b>General settings</b>-&gt;<b>Photo Description</b>.<br>
+    <b>-</b> '<b>Under development</b>' notification is removed (if you're using a dev version of OWR).<br>
+    <b>-</b> Bookmarks can be split into 2 lines by adding '<b>:</b>' character in the name.<br>
+    <b>-</b> Guest users (not logged in) are automatiocally disconnected from the slot if idle
+    for more than 30 minutes (no mouse/keyboard event).<br>
+    <b>-</b> You can hide device name from profiles by adding '<b>[-]</b>' in front of the name.<br>
+    <b>-</b> You can hide some profiles from guests (not logged in), by adding '<b>[-]</b>'
+    somewhere in the profile name.<br>
+    <b>-</b> You can disable profile change for guests (not logged in) by adding '<b>[-]</b>'
+    in <b>General settings</b>-><b>Receiver name</b>.<br>
+    <b>-</b> You can add user tracking (site visitors) with ClustrMaps.
+    See the help in <b>General settings</b>-><b>Photo Description</b>.<br>
+    <b>-</b> You can use '<b>receiver-info-in-title</b>' class for nice semi-dark transparent
+    background in the expanded title.<br>
+    <b>-</b> You can <b>IMPORT MY BOOKMARKS</b> if you want.
+    See the help in <b>General settings</b>-&gt;<b>Photo Description</b>.<br>
+    <hr>
+    Example configuration to put in <b>General settings</b>-&gt;<b>Photo Description</b>
+    (change the underlined texts):<br>
+    <code>
+    &lt;div class='receiver-info-in-title'&gt;<br>
+    Receiver is operated by: &lt;a href='mailto:<u>YOUR@EMAIL.COM</u>'
+      target='_blank'&gt;<u>YOUR_CALL_SIGN</u>&lt;/a&gt;&lt;br&gt;&lt;br&gt;<br>
+    Device: <u>RTL-SDR</u>&lt;br&gt;<br>
+    Antenna: <u>Diamond X-300</u>&lt;br&gt;<br>
+    &lt;/div&gt;<br>
+    &ltscript src='https://0xaf.org/af-owrx.js'&gt;&lt;/script&gt;<br>
+    &lt;script&gt;<br>
+    &nbsp;&nbsp;window.idle_client_timeout_in_minutes = <u>30</u>; <br>
+    &nbsp;&nbsp;// window.clustrmaps_id = '<u>clustrmaps_id</u>';<br>
+    &nbsp;&nbsp;window.sdr_url = '//<u>sdr.0xaf.org</u>/';<br>
+    &nbsp;&nbsp;window.sdr_title = '<u>SDR in Varna, Bulgaria</u>';<br>
+    &nbsp;&nbsp;window.import_bookmarks_from_af = <u>1</u>;<br>
+    &lt;/script&gt;<br>
+    </code>
+    </div>
+    `
   );
 
   var a = document.querySelector('.settings-body .removable-item > input[placeholder="Device name"]');
@@ -73,20 +97,59 @@ document.addEventListener("DOMContentLoaded", function () {
   );
 
   var a = document.querySelector('div[data-field="photo_desc"] > div > div > textarea');
-  if (a) a.insertAdjacentHTML("afterend", "<small class='af-help'>" +
-    "<b>AF:</b> Guests will be disconnected after 30 minutes of inactivity. " +
-    "To change the timeout, add this text in the 'Photo description' and change to appropriate time.<br>" +
-    "<code> &lt;script&gt; window.idle_client_timeout_in_minutes = 30; &lt;/script&gt; </code><hr>" +
-    "If you want to track users with <a href='https://clustrmaps.com' target='_blank'>Clustrmaps</a>, register an account, " +
-    "create new widget and take the <b>id</b> from the link of the widget (should be the <b>d=</b> parameter of the url). " +
-    "Then add this script to the 'Photo description'.<br>" +
-    "<code> &lt;script&gt; window.clustrmaps_id = 'xxx_replace_with_real_id_xxx'; &lt;/script&gt; </code><hr>" +
-    "If you want to change the logo url and title (upper left 'OpenWebRX' logo), add this script to the 'Photo description'.<br>" +
-    "<code> &lt;script&gt; window.sdr_url = '//sdr.0xaf.org/';<br>window.sdr_title = 'SDR in Varna, Bulgaria'; &lt;/script&gt;</code><hr>" +
-    "If you want to <b>IMPORT MY BOOKMARKS</b>, then add this script to 'Photo description':<br> " +
-    "They will not replace your bookmarks if you already have the same frequency, and will be shown in <b>Purple</b> color.<br>" +
-    "<code> &lt;script&gt; window.import_bookmarks_from_af = 1; &lt;/script&gt; </code><hr>" +
-    "</small>");
+  if (a) a.insertAdjacentHTML("afterend", `
+    <small class='af-help'>
+      <b>Param</b>: <u>idle_client_timeout_in_minutes</u>&nbsp;
+      [current value: <b>${window.idle_client_timeout_in_minutes} minutes</b>]<br>
+
+      <b>Description</b>: Guests will be disconnected after some minutes of inactivity.<br>
+      To change the timeout, add the code to the 'Photo description' (at the end)
+      and change to appropriate time.<br>
+
+      <b>Code</b>:<br>
+      <code>&lt;script&gt; window.idle_client_timeout_in_minutes = 30; &lt;/script&gt;</code>
+
+      <hr>
+
+      <b>Param</b>: <u>clustrmaps_id</u>&nbsp;
+      [current value: <b>${window.clustrmaps_id}</b>]<br>
+
+      <b>Description</b>: If you want to track users with
+        <a href='https://clustrmaps.com' target='_blank'>Clustrmaps</a>, register an account,
+        create new widget and take the <b>id</b> from the link of the widget
+        (should be the <b>d=</b> parameter of the url). Then add this code to the 'Photo description' (at the end).<br>
+
+      <b>Code</b>:<br>
+      <code>&lt;script&gt; window.clustrmaps_id = '<u>xxx_replace_with_real_id_xxx</u>'; &lt;/script&gt;</code>
+
+      <hr>
+
+      <b>Param</b>: <u>sdr_url</u> and <u>sdr_title</u>&nbsp;
+      [current value: <b>${window.sdr_url}</b> and <b>${window.sdr_title}</b>]<br>
+
+      <b>Description</b>: If you want to change the logo url and title (upper left 'OpenWebRX' logo),
+      add this code to the 'Photo description' (at the end) and change the underlined text.<br>
+
+      <b>Code</b>:<br>
+      <code>&lt;script&gt;<br>
+        window.sdr_url = '//<u>sdr.0xaf.org</u>/';<br>
+        window.sdr_title = '<u>SDR in Varna, Bulgaria</u>';<br>&lt;/script&gt;
+      </code>
+
+      <hr>
+
+      <b>Param</b>: <u>import_bookmarks_from_af</u>&nbsp;
+      [current value: <b>${window.import_bookmarks_from_af}</b>]<br>
+
+      <b>Description</b>: If you want to <b>IMPORT MY BOOKMARKS</b>, then add this
+        code to 'Photo description' (at the end):<br>
+      My bookmarks will not replace your bookmarks if you already have the same frequency,
+      and will be shown in <b>Purple</b> color.<br>
+
+      <b>Code</b>:<br>
+      <code>&lt;script&gt; window.import_bookmarks_from_af = 1; &lt;/script&gt;</code>
+    </small>
+    `);
 
   var a = document.querySelector('.settings-body .removable-item > input[placeholder="Profile name"]');
   if (a) a.insertAdjacentHTML("afterend",
@@ -141,8 +204,17 @@ style.innerHTML = `
 	color: tomato;
 	width: 100%;
 	padding: 0.25rem;
-	border: 1px dashed orange;
+	border: 1px dotted orange;
 	display: block;
+}
+.af-help>code {
+  border: 1px dashed darkorange;
+  padding:3px;
+  margin: 5px;
+  display: inline-block;
+}
+.af-help>hr {
+  margin: 10px 0;;
 }
 .af-help>b {
 	color: violet;
@@ -152,6 +224,19 @@ style.innerHTML = `
 	padding: 0.25rem;
 	display: inline-block;
 	border-radius: 0.5rem;
+}
+.title-info-added-features {
+  color: deepskyblue;
+  margin: -10px 15px 0px 15px;
+	background: rgba(0,0,0,0.5);
+  width: fit-content;
+  padding: 3px;
+  border-radius: 5px;
+  font-size: smaller;
+}
+.title-info-added-features > a:visited {
+  color: #5ca8ff;
+  text-shadow: none;
 }
 #openwebrx-bookmarks-container .bookmark[data-source=AF] {
     background-color: #F6F;
@@ -197,7 +282,7 @@ You have been logged out for being idle.<br>
 Please do not take the client slot forever.<br>
 Give others a chance to use the SDR.<br>
 <br>
-<a href="`+window.sdr_url+`">Reload</a>
+<a href="` + window.sdr_url + `">Reload</a>
 </center>
 `;
 }
@@ -228,10 +313,10 @@ function rework_bookmarks() {
 
     if (window.import_bookmarks_from_af) {
       fetch("https://0xaf.org/af-owrx-bookmarks.json")
-      // fetch("http://127.0.0.1:3000/bookmarks.json")
+        // fetch("http://127.0.0.1:3000/bookmarks.json")
         .then(res => res.json())
         .then((out) => {
-        // var out = af_imported_bookmarks;
+          // var out = af_imported_bookmarks;
           var freq = get_visible_freq_range();
           var to_import = out.filter((bm) => {
             if (bm.frequency < freq.start || bm.frequency > freq.end) return false;
@@ -310,4 +395,3 @@ function rework_profiles() {
     setTimeout(rework_profiles, 50);
   }
 }
-
