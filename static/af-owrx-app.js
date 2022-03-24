@@ -405,6 +405,7 @@ function af_owrx_addon_load() {
                   v-if="!noJoined || m.text"
                   class="q-ma-xs"
                   stamp-html
+                  label-html
                   :label="m.joined"
                   :name="m.name"
                   :text="m.text"
@@ -434,12 +435,12 @@ function af_owrx_addon_load() {
                         size="xs"
                         color="red"
                         icon="fas fa-trash-can"
-                        class="absolute-right"
+                        class="absolute-top-right"
                         v-if="isAdmin()"
                         @click="dbRemoveItem(m.itemId)"
                       ><q-tooltip>Remove</q-tooltip>
                       </q-btn>
-                      {{ m.joined }}
+                      <div v-html="m.joined"></div>
                     </div>
                   </template>
 
@@ -535,9 +536,9 @@ function af_owrx_addon_load() {
             setTimeout(() => mute(), 100);
           } else {
             audioEngine.onStart(() => {
-              console.log('audio started');
+              // console.log('audio started');
               if (!window.af_user || !window.af_user.username) {
-                console.log('mute');
+                // console.log('mute');
                 audioEngine.setVolume(0);
               }
             });
@@ -593,7 +594,7 @@ function af_owrx_addon_load() {
           .finally(() => {
             $q.loading.hide();
             if (audioEngine) {
-              console.log('unmute');
+              // console.log('unmute');
             }
             // if (audioEngine && audioEngine.audioContext && audioEngine.audioContext.resume) audioEngine.audioContext.resume();
           });
@@ -643,7 +644,7 @@ function af_owrx_addon_load() {
                 case 'cpuusage':
                   break;
                 default:
-                  console.log(json);
+                  // console.log(json);
                   break;
               }
             } catch (e) {}
@@ -686,7 +687,7 @@ function af_owrx_addon_load() {
             $q.notify({
               message: 'Item deleted.'
             });
-            console.log('Item ' + id + 'deleted.');
+            // console.log('Item ' + id + ' deleted.');
           }).catch((e) => {
             divlog(e);
             $q.notify({
@@ -721,7 +722,7 @@ function af_owrx_addon_load() {
         }
 
         function dbChangeHandler(items) {
-          console.log('db changed');
+          // console.log('db changed');
           if (items.length === 0) {} else {
             chatMessages.value = new Array();
             for (let i = 0; i < items.length; i++) {
@@ -828,7 +829,7 @@ function af_owrx_addon_load() {
           ub_error.value = '';
           loginForm.value.validate().then(success => {
             if (success) {
-              console.log('ok registering');
+              // console.log('ok registering');
               userbase.signUp({
                   username: user.value,
                   password: pass.value,
@@ -855,7 +856,7 @@ function af_owrx_addon_load() {
           ub_error.value = '';
           loginForm.value.validate().then(success => {
             if (success) {
-              console.log('ok logging');
+              // console.log('ok logging');
               userbase.signIn({
                   username: user.value,
                   password: pass.value,
@@ -993,6 +994,10 @@ You have been logged out.<br>${x}
             select.onchange = function (event) {
               if (document.querySelector(".webrx-rx-title").innerHTML.indexOf("[-]") !== -1) {
                 if (isAdmin() || (isGuest() && current_clients == 1)) {
+                  dbAddMsg({
+                    label: `${af_user.username} changed profile to<br>${select.options[select.selectedIndex].text}`,
+                    stamp: date.formatDate(new Date(), 'YY-MM-DD HH:mm:ss'),
+                  });
                   sdr_profile_changed();
                   return true;
                 } else {
@@ -1006,6 +1011,10 @@ You have been logged out.<br>${x}
                 }
               } else {
                 if (isUser() || (isGuest() && current_clients == 1)) {
+                  dbAddMsg({
+                    label: `${af_user.username} changed profile to<br>${select.options[select.selectedIndex].text}`,
+                    stamp: date.formatDate(new Date(), 'YY-MM-DD HH:mm:ss'),
+                  });
                   sdr_profile_changed();
                 } else {
                   $q.notify({
