@@ -733,6 +733,7 @@ function af_owrx_addon_load() {
               obj.itemId = id;
 
               if (obj.name) {
+                obj.name = obj.name.toUpperCase();
                 if (cb.username && cb.username.toUpperCase() == user.value) // if it's sent by us
                   obj.sent = true;
 
