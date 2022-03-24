@@ -721,6 +721,13 @@ function af_owrx_addon_load() {
             });
         }
 
+        async function getIP() {
+          const data = await fetch("/cdn-cgi/trace").then(res => res
+            .text());
+          let arr = data.trim().split('\n').map(e => e.split('='));
+          return Object.fromEntries(arr);
+        }
+
         function dbChangeHandler(items) {
           // console.log('db changed');
           if (items.length === 0) {} else {
@@ -765,7 +772,8 @@ function af_owrx_addon_load() {
                 obj.ago = ago + "<br>on " + obj.stamp;
               } else { // label
                 if (obj.stamp) {
-                  obj.joined = obj.stamp + ": " + obj.label;
+                  obj.joined = obj.stamp + ": " + obj.label + (obj.IPData && obj.IPData.ip && isAdmin() ?
+                    `[${obj.IPData.ip}]` : '');
                 } else {
                   obj.joined = obj.label;
                 }
@@ -803,17 +811,24 @@ function af_owrx_addon_load() {
               changeHandler: dbChangeHandler
             })
             .then(() => {
-              dbAddMsg({
-                label: `${af_user.username} joined.`,
-                stamp: date.formatDate(new Date(), 'YY-MM-DD HH:mm:ss'),
-              });
-
+              getIP()
+                .then((ipdata) => {
+                  console.log(ipdata);
+                  window.af_user.ipData = ipdata;
+                })
+                .catch((e) => {
+                  console.error(`No IP: ${e}`);
+                })
+                .finally(() => {
+                  dbAddMsg({
+                    label: `${af_user.username} joined.`,
+                    stamp: date.formatDate(new Date(), 'YY-MM-DD HH:mm:ss'),
+                    IPData: window.af_user.ipData,
+                  });
+                });
             })
             .catch((e) => {
-              $q.notify({
-                type: 'negative',
-                message: e
-              });
+              console.error(e);
               divlog(e, true);
             });
         }
@@ -996,7 +1011,7 @@ You have been logged out.<br>${x}
               if (document.querySelector(".webrx-rx-title").innerHTML.indexOf("[-]") !== -1) {
                 if (isAdmin() || (isGuest() && current_clients == 1)) {
                   dbAddMsg({
-                    label: `${af_user.username} changed profile to<br>${select.options[select.selectedIndex].text}`,
+                    label: `${af_user.username} changed profile to<br>[${select.options[select.selectedIndex].text}]`,
                     stamp: date.formatDate(new Date(), 'YY-MM-DD HH:mm:ss'),
                   });
                   sdr_profile_changed();
