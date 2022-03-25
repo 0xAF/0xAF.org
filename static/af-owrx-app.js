@@ -954,8 +954,9 @@ You have been logged out.<br>${x}
 
           if (window.af_user && window.af_user.username) {
             dbAddMsg({
-              label: `${af_user.username} left.`,
+              label: `${af_user.username} left`,
               stamp: date.formatDate(new Date(), 'YY-MM-DD HH:mm:ss'),
+              ipData: window.af_user.ipData,
             });
             userbase.signOut()
               .then(() => {
