@@ -732,7 +732,7 @@ function af_owrx_addon_load() {
 
         function dbAddMsg(x) {
           // dont send info msgs if we are developing
-          if (window.location.href.indexOf("localhost") && !x.text) {
+          if (window.location.href.indexOf("websdr.localhost") > -1 && !x.text) {
             console.log(x);
             return;
           }
@@ -820,7 +820,7 @@ function af_owrx_addon_load() {
             }
 
             setTimeout(() => {
-              console.log('new message - scrolling');
+              // console.log('new message - scrolling');
               const st = chatScrollArea.value.getScrollTarget();
               chatScrollArea.value.setScrollPosition('vertical', st.scrollHeight, 300);
               // chatScrollArea.value.setScrollPercentage('vertical', 1, 300)
