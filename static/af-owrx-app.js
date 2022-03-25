@@ -805,7 +805,7 @@ function af_owrx_addon_load() {
                   obj.sent = true;
               } else { // label
                 if (obj.ipData && obj.ipData.ip && isAdmin()) {
-                  obj.joined = `${obj.label} [${obj.IPData.ip}]`;
+                  obj.joined = `${obj.label} [${obj.ipData.ip}]`;
                 } else {
                   obj.joined = obj.label;
                 }
@@ -855,7 +855,7 @@ function af_owrx_addon_load() {
                   dbAddMsg({
                     label: `${af_user.username} `+(returning ? 'returned' : 'joined'),
                     stamp: date.formatDate(new Date(), 'YY-MM-DD HH:mm:ss'),
-                    IPData: window.af_user.ipData,
+                    ipData: window.af_user.ipData,
                   });
                 });
             })
