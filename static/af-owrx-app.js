@@ -559,6 +559,7 @@ function af_owrx_addon_load() {
         const appId = 'd3279b8e-4f8e-4564-b827-063c6221e6b5';
         let current_clients = 0;
         let timeout;
+        let appStarted = false;
 
         chatMessages.value = new Array();
 
@@ -826,7 +827,7 @@ function af_owrx_addon_load() {
               // chatScrollArea.value.setScrollPercentage('vertical', 1, 300)
             }, 100);
 
-            if (isChatHidden()) {
+            if (isChatHidden() && appStarted) {
               const last = chatMessages.value[chatMessages.value.length - 1];
               if (last.joined) {
                 $q.notify(last.label);
@@ -834,7 +835,7 @@ function af_owrx_addon_load() {
                 $q.notify(last.name + ": " + last.text[0]);
               }
             }
-
+            appStarted = true;
           }
         }
 
