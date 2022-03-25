@@ -820,8 +820,11 @@ function af_owrx_addon_load() {
             }
 
             setTimeout(() => {
-              chatScrollArea.value.setScrollPercentage('vertical', 1, 300)
-            }, 100);
+              console.log('new message - scrolling');
+              const st = chatScrollArea.value.getScrollTarget();
+              chatScrollArea.value.setScrollPosition('vertical', st.scrollHeight, 300);
+              // chatScrollArea.value.setScrollPercentage('vertical', 1, 300)
+            }, 1000);
 
             if (isChatHidden()) {
               const last = chatMessages.value[chatMessages.value.length - 1];
