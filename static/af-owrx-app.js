@@ -552,7 +552,7 @@ function af_owrx_addon_load() {
         const chatMsgInput = ref(null);
         const chatScrollArea = ref(null);
         const rightDrawerOpen = ref(false);
-        const noJoined = ref(false);
+        const noJoined = ref(true);
         // let chatLastStamp = 0;
         const shareToken =
           'Mjc1MzA3NmItNjNkZS00NDgwLThiOTctN2FiZjUyZjUyNmI1qRPSqVABryaDyjpMP1NKp+RwVzp199N0CDUSsqx2Rs8=';
@@ -807,7 +807,8 @@ function af_owrx_addon_load() {
 
               if (obj.name) {
                 obj.name = obj.name.toUpperCase();
-                if (cb.username && cb.username.toUpperCase() == user.value.toUpperCase()) // if it's sent by us
+                if (cb.username && cb.username.toUpperCase() == user.value
+                  .toUpperCase()) // if it's sent by us
                   obj.sent = true;
               } else { // label
                 if (obj.ipData && obj.ipData.ip && isAdmin()) {
@@ -827,17 +828,25 @@ function af_owrx_addon_load() {
               // chatScrollArea.value.setScrollPercentage('vertical', 1, 300)
             }, 100);
 
-            if (isChatHidden() && appStarted) {
+            if (appStarted) {
               const last = chatMessages.value[chatMessages.value.length - 1];
-              if (last.joined) {
-                $q.notify(last.label);
+              if (isChatHidden()) {
+                if (last.joined) {
+                  $q.notify(last.label);
+                } else {
+                  $q.notify(last.name + ": " + last.text[0]);
+                }
               } else {
-                $q.notify(last.name + ": " + last.text[0]);
+                if (noJoined && last.joined) {
+                  $q.notify(last.label);
+                }
               }
+            } else {
+              appStarted = true;
             }
-            appStarted = true;
+
           }
-        }
+        } // dbChangeHandler
 
         function userLoggedIn(returning = false) {
           if ($q.screen.width < small_size || $q.screen.height < small_size) {
@@ -862,7 +871,7 @@ function af_owrx_addon_load() {
                 })
                 .finally(() => {
                   dbAddMsg({
-                    label: `${af_user.username} `+(returning ? 'returned' : 'joined'),
+                    label: `${af_user.username} ` + (returning ? 'returned' : 'joined'),
                     stamp: date.formatDate(new Date(), 'YY-MM-DD HH:mm:ss'),
                     ipData: window.af_user.ipData,
                   });
