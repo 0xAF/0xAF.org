@@ -731,6 +731,11 @@ function af_owrx_addon_load() {
         }
 
         function dbAddMsg(x) {
+          // dont send info msgs if we are developing
+          if (window.location.href.indexOf("localhost") && !x.text) {
+            console.log(x);
+            return;
+          }
           x.sent = undefined;
           return userbase.insertItem({
             shareToken,
