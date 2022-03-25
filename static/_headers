@@ -1,4 +1,8 @@
-/af-owrx-bookmarks.json
+/*.json
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, OPTIONS, POST, DELETE, PUT
+
+/*.js
   Access-Control-Allow-Origin: *
   Access-Control-Allow-Methods: GET, OPTIONS, POST, DELETE, PUT
 

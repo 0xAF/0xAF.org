@@ -255,6 +255,14 @@ function af_owrx_addon_load() {
     scr_ub.src = 'https://sdk.userbase.com/2/userbase.js';
     scr_ub.async = false; // optionally
 
+    var scr_day = document.createElement('script');
+    scr_day.src = 'https://unpkg.com/dayjs@1.8.21/dayjs.min.js';
+    scr_day.async = false; // optionally
+
+    var scr_dayrt = document.createElement('script');
+    scr_dayrt.src = 'https://unpkg.com/dayjs@1.8.21/plugin/relativeTime.js';
+    scr_dayrt.async = false; // optionally
+
     head.appendChild(scr_mitt);
     scr_mitt.addEventListener('load', () => {
       emitter = mitt();
@@ -266,7 +274,14 @@ function af_owrx_addon_load() {
           scr_fa.addEventListener('load', () => {
             head.appendChild(scr_ub);
             scr_ub.addEventListener('load', () => {
-              af_start_app();
+              head.appendChild(scr_day);
+              scr_day.addEventListener('load', () => {
+                head.appendChild(scr_dayrt);
+                scr_dayrt.addEventListener('load', () => {
+                  dayjs.extend(window.dayjs_plugin_relativeTime);
+                  af_start_app();
+                });
+              });
             });
           });
         });
@@ -383,8 +398,11 @@ function af_owrx_addon_load() {
             <div>Chat - {{user}}</div>
           <q-space></q-space>
           <!-- <q-btn dense flat round icon="fas fa-bars" @click="rightDrawerOpen = !rightDrawerOpen"></q-btn> -->
-          <q-btn dense flat round icon="fas fa-eye-slash" @click="noJoined = !noJoined">
-            <q-tooltip>Show/Hide 'joined' messages.</q-tooltip>
+          <q-btn dense flat round icon="fas fa-square-minus" color="negative" @click="deleteOldest()">
+            <q-tooltip>Remove oldest 10 info messages.</q-tooltip>
+          </q-btn>
+          <q-btn dense flat round :icon="noJoined ? 'fas fa-eye' : 'fas fa-eye-slash'" @click="noJoined = !noJoined">
+            <q-tooltip>{{ noJoined ? 'Show' : 'Hide' }} info messages.</q-tooltip>
           </q-btn>
           <q-btn dense flat icon="fas fa-window-minimize" @click="toggleChat">
             <q-tooltip>Minimize</q-tooltip>
@@ -413,7 +431,6 @@ function af_owrx_addon_load() {
                   :stamp="m.ago"
                   autocomplete="off"
                 >
-
                   <div v-if="m.text" class="q-pr-md">
                     <q-btn
                       round
@@ -428,8 +445,15 @@ function af_owrx_addon_load() {
                     {{ m.text[0] }}
                   </div>
 
+                  <template v-slot:stamp v-if="m.ago">
+                    <q-chip dense outline dark color="dark" size="sm">
+                      <q-tooltip>{{ m.stamp }}</q-tooltip>
+                      {{ m.ago }}
+                    </q-chip>
+                  </template>
+
                   <template v-slot:label v-if="m.joined">
-                    <div style="position: relative">
+                    <div style="position: relative" class="q-mb-xs text-info">
                       <q-btn
                         round
                         size="xs"
@@ -440,7 +464,13 @@ function af_owrx_addon_load() {
                         @click="dbRemoveItem(m.itemId)"
                       ><q-tooltip>Remove</q-tooltip>
                       </q-btn>
-                      <div v-html="m.joined"></div>
+                      <span v-html="m.joined"></span>
+                      <div class="x-text-overline">
+                        <q-chip dense outline dark size="sm">
+                          <q-tooltip>{{ m.stamp }}</q-tooltip>
+                          {{ m.ago }}
+                        </q-chip>
+                      </div>
                     </div>
                   </template>
 
@@ -467,6 +497,7 @@ function af_owrx_addon_load() {
                   filled
                   dense
                   autofocus
+                  name="chat"
                 >
                   <template v-slot:after>
                     <q-btn type="submit" @click="chatSend" round dense flat icon="fas fa-paper-plane"></q-btn>
@@ -573,10 +604,10 @@ function af_owrx_addon_load() {
             if (session.user) {
               session.user.username = session.user.username.toUpperCase();
               window.af_user = session.user;
-              user.value = session.user.username;
+              user.value = session.user.username.toUpperCase();
               dialog.value = false;
               console.log(`user ${af_user.username} returned.`);
-              userLoggedIn();
+              userLoggedIn(true);
               $q.notify({
                 type: 'announcement',
                 message: 'Welcome back ' + af_user.username,
@@ -588,7 +619,7 @@ function af_owrx_addon_load() {
             }
           })
           .catch((e) => {
-            console.log(e);
+            console.error(e);
             dialog.value = true;
           })
           .finally(() => {
@@ -670,6 +701,35 @@ function af_owrx_addon_load() {
           return (window.af_user && window.af_user.username) ? true : false;
         }
 
+        function deleteOldest() {
+          if (!isAdmin()) return;
+          let operations = new Array();
+          chatMessages.value.forEach((obj) => {
+            if (operations.length < 10 && obj.label) {
+              operations.push({
+                command: 'Delete',
+                itemId: obj.itemId
+              });
+            }
+          });
+
+          userbase.putTransaction({
+            shareToken,
+            operations
+          }).then(() => {
+            $q.notify({
+              message: '10 info item deleted.'
+            });
+            // console.log('Item ' + id + ' deleted.');
+          }).catch((e) => {
+            divlog(e);
+            $q.notify({
+              type: 'negative',
+              e
+            });
+          });
+        }
+
         function dbAddMsg(x) {
           x.sent = undefined;
           return userbase.insertItem({
@@ -736,44 +796,16 @@ function af_owrx_addon_load() {
               // console.log(items[i]);
               let cb = items[i].createdBy;
               let obj = items[i].item;
-              let id = items[i].itemId;
-              obj.itemId = id;
+              obj.itemId = items[i].itemId;
+              obj.ago = dayjs().to(cb.timestamp);
 
               if (obj.name) {
                 obj.name = obj.name.toUpperCase();
-                if (cb.username && cb.username.toUpperCase() == user.value) // if it's sent by us
+                if (cb.username && cb.username.toUpperCase() == user.value.toUpperCase()) // if it's sent by us
                   obj.sent = true;
-
-                // const seconds = date.getDateDiff(new Date(cb.timestamp), Date.now(), "seconds");
-                const minutes = date.getDateDiff(Date.now(), new Date(cb.timestamp), "minutes");
-                const hours = date.getDateDiff(Date.now(), new Date(cb.timestamp), "hours");
-                const days = date.getDateDiff(Date.now(), new Date(cb.timestamp), "days");
-                const months = date.getDateDiff(Date.now(), new Date(cb.timestamp), "months");
-                const years = date.getDateDiff(Date.now(), new Date(cb.timestamp), "years");
-                let ago;
-                if (years > 0) {
-                  ago = `${years} year${years > 1 ? "s" : ""}`;
-                  if (months > 0) ago += ` and ${months} month${months > 1 ? "s" : ""}`;
-                } else if (months > 0) {
-                  ago = `${months} month${months > 1 ? "s" : ""}`;
-                  if (days > 0) ago += ` and ${days} day${days > 1 ? "s" : ""}`;
-                } else if (days > 0) {
-                  ago = `${days} day${days > 1 ? "s" : ""}`;
-                  if (hours > 0) ago += ` and ${hours} hour${hours > 1 ? "s" : ""}`;
-                } else if (hours > 0) {
-                  ago = `${hours} hour${hours > 1 ? "s" : ""}`;
-                  if (minutes > 0) ago += ` and ${minutes} minute${minutes > 1 ? "s" : ""}`;
-                } else if (minutes > 0) {
-                  ago = `${minutes} minute${minutes > 1 ? "s" : ""}`;
-                } else {
-                  ago = "few moments";
-                }
-                ago += " ago.";
-                obj.ago = ago + "<br>on " + obj.stamp;
               } else { // label
-                if (obj.stamp) {
-                  obj.joined = obj.stamp + ": " + obj.label + (obj.IPData && obj.IPData.ip && isAdmin() ?
-                    `[${obj.IPData.ip}]` : '');
+                if (obj.ipData && obj.ipData.ip && isAdmin()) {
+                  obj.joined = `${obj.label} [${obj.IPData.ip}]`;
                 } else {
                   obj.joined = obj.label;
                 }
@@ -798,7 +830,7 @@ function af_owrx_addon_load() {
           }
         }
 
-        function userLoggedIn() {
+        function userLoggedIn(returning = false) {
           if ($q.screen.width < small_size || $q.screen.height < small_size) {
             // close receiver menu on small screen
             setTimeout(() => toggle_panel("openwebrx-panel-receiver", false), 2000);
@@ -813,7 +845,7 @@ function af_owrx_addon_load() {
             .then(() => {
               getIP()
                 .then((ipdata) => {
-                  console.log(ipdata);
+                  // console.log(ipdata);
                   window.af_user.ipData = ipdata;
                 })
                 .catch((e) => {
@@ -821,7 +853,7 @@ function af_owrx_addon_load() {
                 })
                 .finally(() => {
                   dbAddMsg({
-                    label: `${af_user.username} joined.`,
+                    label: `${af_user.username} `+(returning ? 'returned' : 'joined'),
                     stamp: date.formatDate(new Date(), 'YY-MM-DD HH:mm:ss'),
                     IPData: window.af_user.ipData,
                   });
@@ -1009,9 +1041,9 @@ You have been logged out.<br>${x}
             // disable changing of profiles
             select.onchange = function (event) {
               if (document.querySelector(".webrx-rx-title").innerHTML.indexOf("[-]") !== -1) {
-                if (isAdmin() || (isGuest() && current_clients == 1)) {
+                if (isAdmin() || ((isGuest() || isUser()) && current_clients == 1)) {
                   dbAddMsg({
-                    label: `${af_user.username} changed profile to<br>[${select.options[select.selectedIndex].text}]`,
+                    label: `${af_user.username} [${select.options[select.selectedIndex].text}] (alone or admin)`,
                     stamp: date.formatDate(new Date(), 'YY-MM-DD HH:mm:ss'),
                   });
                   sdr_profile_changed();
@@ -1028,7 +1060,7 @@ You have been logged out.<br>${x}
               } else {
                 if (isUser() || (isGuest() && current_clients == 1)) {
                   dbAddMsg({
-                    label: `${af_user.username} changed profile to<br>${select.options[select.selectedIndex].text}`,
+                    label: `${af_user.username} [${select.options[select.selectedIndex].text}]`,
                     stamp: date.formatDate(new Date(), 'YY-MM-DD HH:mm:ss'),
                   });
                   sdr_profile_changed();
@@ -1065,10 +1097,13 @@ You have been logged out.<br>${x}
         function resetTimer() {
           clearTimeout(timeout);
           if (!isAdmin()) {
-            timeout = setTimeout(() => logoutUser(`
+            timeout = setTimeout(() => {
+                logoutUser(`
   Please do not take the client slot forever.<br>
   Give others a chance to use the SDR.<br>
-            `),
+                `);
+                console.log(`user ${window.af_user.username} has been logged out for idleing.`)
+              },
               (isGuest() ? window.idle_guest_timeout_in_minutes : window
                 .idle_client_timeout_in_minutes) * 60 * 1000
             );
@@ -1101,6 +1136,7 @@ You have been logged out.<br>${x}
           isAdmin,
           dbRemoveItem,
           loginGuest,
+          deleteOldest,
         }
       }
     });
