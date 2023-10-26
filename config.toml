@@ -113,7 +113,7 @@ accent_color = "blue"
 background_color = "dark"
 
 # The logo text - defaults to "Terminimal theme"
-logo_text = "[0xAF]"
+logo_text = "[0xAF] - LZ2SLL"
 
 # The logo link - defaults to base_url.
 logo_home_link = "/"
@@ -121,7 +121,7 @@ logo_home_link = "/"
 # Author name: when specified, modifies the default
 # copyright text. Apart from author, it will
 # contain current year and a link to the theme.
-author = "Stanislav Lechev [0xAF]"
+author = "Stanislav Lechev [0xAF] - LZ2SLL"
 
 # Copyright text in HTML format. If specified,
 # entirely replaces default copyright and author.
@@ -144,7 +144,7 @@ menu_items = [
 	{name = "github", url = "https://github.com/0xAF", newtab = true},
 
 	{name = "amateur radio", url = "https://ham.0xaf.org", newtab = true},
-	{name = "web sdr", url = "https://sdr.0xaf.org", newtab = true},
+	{name = "web sdr", url = "https://varna.radio", newtab = true},
 ]
 
 # Whether to show links to earlier and later posts
