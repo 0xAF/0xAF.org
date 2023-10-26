@@ -5,7 +5,7 @@ date = 2023-10-27
 tags = ["news", "ham", "sdr", "2023"]
 +++
 
-It's been a long time, since I've written here. I knew it is a doomed idea to make a blog.  
+It's been a long time, since I've written here. I knew it was a doomed idea to make a blog.  
 So here are some updates on the WebSDR.
 
 WebSDR moved to new address, where I've prepared more WebSDRs for you to listen to.  
@@ -13,7 +13,7 @@ You will find them on <a href="https://varna.radio">varna.radio</a>. I will fini
 There is also a database with all the repeaters in Bulgaria too. Me and LZ2DMV are maintaning the DB. It is hosted on the same site.  
 You will find <a href="https://varna.radio/reps.json">the database</a> and <a href="https://varna.radio/reps.js">the JS library</a> which will help you with the DB also there.
 
-For some time, I'm trying to make use of my free time, by contributing to <a href="https://github.com/luarvique/openwebrx">OpenWebRX+</a> project, maintained by Marat. I've integrated Leaflet with OpenStreetMaps to the project and I'm making the docker images and the RPi packages.  
+For some time, I'm trying to make use of my free time, by contributing to <a href="https://github.com/luarvique/openwebrx">OpenWebRX+</a> project, maintained by Marat. I've integrated Leaflet with OpenStreetMaps to the project and I'm making the docker images and the RPi images. I'm also preparing an automated environment for building these images, as for the Debian (x86-64, armv7 and arm64) packages, which are published on debian and ububtu repos of the project.    
 You can read of how to install it <a href="https://luarvique.github.io/ppa/">here</a>, or you can use <a href="https://hub.docker.com/search?q=slechev%2Fopenwebrx">my docker images</a> or <a href="https://github.com/luarvique/openwebrx/releases/">the Raspberry Pi images</a>.
 
 The WebSDR was upgraded too. I've replaced the RPi 4 with a TinyPC.  
