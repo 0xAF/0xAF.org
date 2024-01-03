@@ -9,3 +9,4 @@ On 13.09.2021 I passed the exam for radio amateur and today I got my license wit
 So, there is one more way to contact me. ;)  
 I'm planing to create a web page with some information about <a href="https://ham.0xaf.org/" target="_blank">Amateur Radio (HAM) in Bulgaria</a>.  
 
+73, de LZ2SLL
