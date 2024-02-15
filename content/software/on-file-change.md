@@ -7,4 +7,4 @@ tags = ["perl", "tools"]
 
 This script executes a command when a file is changed.
 
-{{ code_listing(path="/software/on_file_change.pl", lang="perl") }}
+{{ code_listing(path="/software/on_file_change.pl", hlang="perl") }}

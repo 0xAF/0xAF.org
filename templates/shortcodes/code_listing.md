@@ -23,7 +23,7 @@
 
 <div class="code-listing">
 
-```{{lang}}
+```{% if hlang %}{{hlang}}{% endif %}
 {{ data }}
 ```
 

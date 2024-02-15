@@ -10,4 +10,4 @@ But back in the time of the BBSes with no (or very limited) access to Internet, 
 From there I was able to connect to CompuServe (CIS), where they would allow me to create a new account (lasting 2-3 weeks) with a generated CreditCard number. After logging into their system, I was able to start a PPP session and get to the Internet. This scanner helped me in the later days to find other interesting NUAs, but I've never found anything interesting.
 The `x25pad.autonet.net`, which is used as a gateway from the Internet to X25 network is not working anymore, so this peace of software is useless... 
 
-{{ code_listing(path="/software/x25scan.c", lang="c") }}
+{{ code_listing(path="/software/x25scan.c", hlang="c") }}

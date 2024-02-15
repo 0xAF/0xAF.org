@@ -78,7 +78,7 @@ extra_syntaxes = []
 highlight_code = true
 
 # The theme to use for code highlighting.
-#highlight_theme = "monokai"
+# highlight_theme = "monokai"
 
 # When set to "true", emoji aliases translated to their corresponding
 # Unicode emoji equivalent in the rendered Markdown files. (e.g.: :smile: => 😄)
@@ -104,7 +104,9 @@ smart_punctuation = false
 [extra]
 # One of: blue, green, orange, pink, red.
 # Defaults to blue.
-accent_color = "blue"
+accent_color = "blue-auto"
+
+# default_og_image = "static/proxmox-orion.png"
 
 # One of: blue, dark, green, orange, pink, red.
 # Enabling dark background will also modify primary font color
@@ -162,7 +164,9 @@ post_view_navigation_prompt = "Read more"
 use_full_hack_font = true
 
 # use Play font instead of Hack
-use_play_font = true
+#use_play_font = true
+
+page_titles = "combined"
 
 
 # Optional: Global favicon URL and mimetype.

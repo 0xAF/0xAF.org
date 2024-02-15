@@ -2,4 +2,42 @@
 
 {% block extra_head %}
   <link rel="alternate" type="application/rss+xml" title="RSS" href="{{ get_url(path="rss.xml", trailing_slash=false) }}">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Play:wght@400;700&display=swap');
+    body {
+      /* font-family: 'Play', 'Hack', sans-serif; */
+      /* font-size: 1.2rem; */
+      code {
+        font-family: 'Play', 'Hack', sans-serif;
+        font-size: 1.1rem;
+      }
+    }
+  </style>
+{% endblock %}
+
+{% block header_menu %}
+  {{ menu_macros::menu(config=config, current_path=current_path) }}
+  {%- set abs_item_url = current_url | replace(from="$BASE_URL", to=config.base_url) -%}
+  {%- set is_base = abs_item_url == config.base_url or abs_item_url == config.base_url ~ "/" -%}
+  {%- if is_base %}
+  <div class="crt scanlines">
+    <pre>
+<strong>af@reactor ~ ❯ </strong>cat varna.txt
+<code>
+                                        |
+                                      \ _ /
+                                    -= (_) =-
+   .\/.                               /   \
+.\\//o\\                      ,\/.      |              ,~
+//o\\|,\/.   ,.,.,   ,\/.  ,\//o\\                     |\
+  |  |//o\  /###/#\  //o\  /o\\|                      /| \
+^^|^^|^~|^^^|' '|:|^^^|^^^^^|^^|^^^""""""""("~~~~~~~~/_|__\~~~~~~~~~~
+ .|'' . |  '''""'"''. |`===`|''  '"" "" " (" ~~~~ ~ ~======~~  ~~ ~
+ jgs^^   ^^^ ^ ^^^ ^^^^ ^^^ ^^ ^^ "" """( " ~~~~~~ ~~~~~  ~~~ ~
+    </code>
+See <a href="/about">About page</a> for full contacts.
+<strong>af@reactor ~ ❯ </strong><span class="cursor">█</span>
+    </pre>
+  </div>
+  {% endif -%}
 {% endblock %}
